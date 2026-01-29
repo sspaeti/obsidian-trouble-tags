@@ -1,0 +1,56 @@
+.trouble-tags-container {
+	padding: 8px;
+	font-size: var(--font-ui-small);
+}
+
+.trouble-tags-empty {
+	color: var(--text-muted);
+	padding: 16px 8px;
+	text-align: center;
+}
+
+.trouble-tags-filename {
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+	padding: 4px 0 8px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.trouble-tags-row {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	padding: 3px 4px;
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.trouble-tags-row:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.trouble-tags-label {
+	font-size: 10px;
+	font-weight: var(--font-semibold);
+	padding: 1px 5px;
+	border-radius: var(--radius-s);
+	flex-shrink: 0;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.trouble-tags-line {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	flex-shrink: 0;
+}
+
+.trouble-tags-context {
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}

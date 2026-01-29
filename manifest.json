@@ -1,0 +1,9 @@
+{
+	"id": "obsidian-trouble-tags",
+	"name": "Trouble Tags",
+	"version": "1.0.0",
+	"minAppVersion": "1.0.0",
+	"description": "Scans the active file for TODO, FIXME, BUG, NOTE, and WARN tags and lists them in a sidebar panel.",
+	"author": "sspaeti",
+	"isDesktopOnly": false
+}
