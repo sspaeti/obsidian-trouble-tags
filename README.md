@@ -1,4 +1,4 @@
-# Trouble Tags
+# Trouble Tags in Obsidian
 
 An Obsidian plugin that scans the active file for inline tags (`#TODO`, `#FIXME`, `#BUG`, `#NOTE`, `#WARN`) and lists them in a sidebar panel. Click any entry to jump to that line.
 
