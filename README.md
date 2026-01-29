@@ -2,7 +2,7 @@
 
 An Obsidian plugin that scans the active file for inline tags (`#TODO`, `#FIXME`, `#BUG`, `#NOTE`, `#WARN`) and lists them in a sidebar panel. Click any entry to jump to that line.
 
-![plugin preview](images/touble-plugin.png)
+![plugin preview](images/trouble-plugin.png)
 
 Inspired by [trouble.nvim](https://github.com/folke/trouble.nvim).
 
@@ -19,3 +19,6 @@ Copy or symlink this folder into `.obsidian/plugins/obsidian-trouble-tags/`, the
 
 ### Activate
 Via comand palete, search for Trouble.
+
+
+*Also check out my other Plugin: [Obsidian Open Specific File](https://github.com/sspaeti/obsidian-open-specific-notes)*
