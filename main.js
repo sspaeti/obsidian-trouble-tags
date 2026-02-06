@@ -3,14 +3,6 @@ const { Plugin, ItemView } = require("obsidian");
 const VIEW_TYPE = "trouble-tags-view";
 const TAG_REGEX = /#(TODO|FIXME|BUG|NOTE|WARN)\b/g;
 
-const TAG_COLORS = {
-	TODO:  { bg: "rgba(59,130,246,0.15)", fg: "rgb(59,130,246)" },
-	FIXME: { bg: "rgba(249,115,22,0.15)", fg: "rgb(249,115,22)" },
-	BUG:   { bg: "rgba(239,68,68,0.15)",  fg: "rgb(239,68,68)" },
-	NOTE:  { bg: "rgba(34,197,94,0.15)",   fg: "rgb(34,197,94)" },
-	WARN:  { bg: "rgba(234,179,8,0.15)",   fg: "rgb(234,179,8)" },
-};
-
 class TroubleView extends ItemView {
 	constructor(leaf, plugin) {
 		super(leaf);
@@ -92,10 +84,7 @@ class TroubleView extends ItemView {
 		for (const hit of this.results) {
 			const row = this.rootEl.createDiv({ cls: "trouble-tags-row" });
 
-			const label = row.createSpan({ cls: "trouble-tags-label", text: hit.tag });
-			const colors = TAG_COLORS[hit.tag];
-			label.style.backgroundColor = colors.bg;
-			label.style.color = colors.fg;
+			row.createSpan({ cls: `trouble-tags-label trouble-tags-label-${hit.tag.toLowerCase()}`, text: hit.tag });
 
 			row.createSpan({ cls: "trouble-tags-line", text: ":" + (hit.line + 1) });
 			row.createSpan({ cls: "trouble-tags-context", text: hit.context });
@@ -143,7 +132,6 @@ class TroubleTagsPlugin extends Plugin {
 	}
 
 	onunload() {
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE);
 	}
 
 	getView() {

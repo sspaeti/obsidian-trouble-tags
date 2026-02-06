@@ -54,3 +54,28 @@
 	white-space: nowrap;
 	min-width: 0;
 }
+
+.trouble-tags-label-todo {
+	background-color: rgba(59, 130, 246, 0.15);
+	color: rgb(59, 130, 246);
+}
+
+.trouble-tags-label-fixme {
+	background-color: rgba(249, 115, 22, 0.15);
+	color: rgb(249, 115, 22);
+}
+
+.trouble-tags-label-bug {
+	background-color: rgba(239, 68, 68, 0.15);
+	color: rgb(239, 68, 68);
+}
+
+.trouble-tags-label-note {
+	background-color: rgba(34, 197, 94, 0.15);
+	color: rgb(34, 197, 94);
+}
+
+.trouble-tags-label-warn {
+	background-color: rgba(234, 179, 8, 0.15);
+	color: rgb(234, 179, 8);
+}

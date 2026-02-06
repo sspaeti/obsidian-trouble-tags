@@ -18,7 +18,7 @@ Copy or symlink this folder into `.obsidian/plugins/obsidian-trouble-tags/`, the
 
 
 ### Activate
-Via comand palete, search for Trouble.
+Via command palette, search for Trouble.
 
 
 *Also check out my other Plugin: [Obsidian Open Specific File](https://github.com/sspaeti/obsidian-open-specific-notes)*
