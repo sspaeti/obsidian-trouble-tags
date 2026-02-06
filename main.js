@@ -148,7 +148,10 @@ class TroubleTagsPlugin extends Plugin {
 
 	getView() {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE);
-		return leaves.length > 0 ? leaves[0].view : null;
+		if (leaves.length > 0 && leaves[0].view instanceof TroubleView) {
+			return leaves[0].view;
+		}
+		return null;
 	}
 
 	async toggleView() {
