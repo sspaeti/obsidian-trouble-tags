@@ -2,11 +2,13 @@ import { Editor, ItemView, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidia
 import type TroubleTagsPlugin from "./main";
 import { Hit, HitKind, scanText } from "./scanner";
 import { doneReplacement } from "./edit";
+import { DEFAULT_SETTINGS } from "./settings";
 import { findMarkdownView } from "./workspace";
 
 export const VIEW_TYPE = "trouble-tags-view";
 
-const BUILTIN_KEYWORDS = ["TODO", "FIXME", "BUG", "NOTE", "WARN", "IDEA", "TK"];
+// Keywords with a dedicated colour class in styles.css.
+const BUILTIN_KEYWORDS = DEFAULT_SETTINGS.keywords;
 const CUSTOM_PALETTE_SIZE = 6;
 const NOTE_SCAN_DELAY = 250;
 
@@ -51,16 +53,27 @@ export class TroubleView extends ItemView {
 
 	scheduleNoteScan(editor?: Editor) {
 		this.clearNoteScanTimer();
+		const path = this.currentPath;
+		if (!path) return;
 		this.noteScanTimer = window.setTimeout(() => {
 			this.noteScanTimer = null;
-			if (!this.currentPath) return;
-			const file = this.app.vault.getFileByPath(this.currentPath);
+			// The panel switched to another note meanwhile; this editor's text is stale.
+			if (this.currentPath !== path) return;
+			const file = this.app.vault.getFileByPath(path);
 			void this.scanNote(file, editor?.getValue());
 		}, NOTE_SCAN_DELAY);
 	}
 
+	/** Rescan a note, preferring the live editor buffer over the (possibly stale) disk copy. */
+	private rescanPath(path: string | null) {
+		const file = path ? this.app.vault.getFileByPath(path) : null;
+		const mv = path ? findMarkdownView(this.app, path) : null;
+		void this.scanNote(file, mv ? mv.editor.getValue() : undefined);
+	}
+
 	async scanNote(file: TFile | null, text?: string) {
 		const seq = ++this.scanSeq;
+		if ((file?.path ?? null) !== this.currentPath) this.clearNoteScanTimer();
 		if (!file || file.extension !== "md") {
 			this.currentPath = null;
 			this.hits = [];
@@ -78,8 +91,7 @@ export class TroubleView extends ItemView {
 	onConfigChanged() {
 		// Force a rebuild: keyword colours depend on settings, not only on hits.
 		this.lastRenderKey = null;
-		const file = this.currentPath ? this.app.vault.getFileByPath(this.currentPath) : null;
-		void this.scanNote(file);
+		this.rescanPath(this.currentPath);
 	}
 
 	private visibleHits(): Hit[] {
@@ -186,7 +198,8 @@ export class TroubleView extends ItemView {
 
 	markDone(path: string, hit: Hit) {
 		const mv = findMarkdownView(this.app, path);
-		if (!mv?.editor) {
+		// A MarkdownView always has an editor, even in reading mode; only write in source mode.
+		if (!mv || mv.getMode() !== "source") {
 			new Notice("Open the note in editing mode to mark done");
 			return;
 		}
@@ -199,6 +212,6 @@ export class TroubleView extends ItemView {
 			return;
 		}
 		new Notice("Line changed, rescanning");
-		void this.scanNote(this.app.vault.getFileByPath(path));
+		void this.scanNote(this.app.vault.getFileByPath(path), editor.getValue());
 	}
 }

@@ -28,3 +28,14 @@ test("callout returns null", () => {
   const hit: Hit = { line: 0, kind: "callout", label: "?", text: "q", done: false, from: 2, to: 3 };
   assert.equal(doneReplacement(hit, "- ? q"), null);
 });
+test("hashtag hit whose line lost the # returns null", () => {
+  assert.equal(doneReplacement(kw(0, 5), "TODO x"), null);
+});
+test("lowercase token returns null", () => {
+  assert.equal(doneReplacement(kw(0, 4), "todo: x"), null);
+});
+test("out-of-range offsets on a shorter line return null", () => {
+  assert.equal(doneReplacement(kw(10, 14), "TODO"), null);
+  const hit: Hit = { line: 0, kind: "task", label: "task", text: "x", done: false, from: 8, to: 11 };
+  assert.equal(doneReplacement(hit, "- [ ]"), null);
+});
