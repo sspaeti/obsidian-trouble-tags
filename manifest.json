@@ -1,7 +1,7 @@
 {
 	"id": "trouble-tags",
 	"name": "Trouble Tags",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"minAppVersion": "1.5.7",
 	"description": "Lists TODO/FIXME/NOTE keywords, list callouts and open tasks of the current note or the whole vault in a sidebar.",
 	"author": "Simon Späti",
