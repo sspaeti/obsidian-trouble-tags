@@ -1,4 +1,6 @@
-import { Plugin, ItemView, WorkspaceLeaf, TFile } from "obsidian";
+import { Plugin, ItemView, WorkspaceLeaf } from "obsidian";
+import { buildScanConfig, ScanConfig } from "./scanner";
+import { DEFAULT_SETTINGS, TroubleTagsSettings, TroubleTagsSettingTab } from "./settings";
 
 const VIEW_TYPE = "trouble-tags-view";
 const TAG_REGEX = /#(TODO|FIXME|BUG|NOTE|WARN)\b/g;
@@ -115,7 +117,26 @@ class TroubleView extends ItemView {
 }
 
 export default class TroubleTagsPlugin extends Plugin {
+	settings!: TroubleTagsSettings;
+	scanConfig!: ScanConfig;
+
+	async loadSettings() {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()) as TroubleTagsSettings;
+		this.scanConfig = buildScanConfig(this.settings);
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
+
+	onMatchSettingsChanged() {
+		this.scanConfig = buildScanConfig(this.settings);
+		void this.getView()?.scanActiveFile();
+	}
+
 	async onload() {
+		await this.loadSettings();
+		this.addSettingTab(new TroubleTagsSettingTab(this.app, this));
 		this.registerView(VIEW_TYPE, (leaf) => new TroubleView(leaf, this));
 
 		this.addRibbonIcon("alert-triangle", "Trouble Tags", () => { void this.toggleView(); });
