@@ -84,6 +84,8 @@ npm run build   # type-check and bundle
 npm test        # unit tests (node --test)
 ```
 
+Releasing: `make bump VERSION=x.y.z` updates `package.json`, `manifest.json` and `versions.json`, rebuilds and commits. `make release` runs the tests, tags the version from `manifest.json`, pushes and creates the GitHub release with `main.js`, `manifest.json` and `styles.css` (needs the `gh` CLI). `make release VERSION=x.y.z` does both.
+
 For manual testing, `node scripts/make-test-notes.mjs` writes fixture notes (all matching forms plus 300 generated notes) into a throwaway vault at `~/git/obsidian/trouble-tags-testvault`. It only creates or overwrites its own files.
 
 ## Credits
