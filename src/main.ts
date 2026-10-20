@@ -1,4 +1,4 @@
-import { Notice, Plugin, TAbstractFile, TFile, normalizePath, setIcon } from "obsidian";
+import { Notice, Platform, Plugin, TAbstractFile, TFile, normalizePath, setIcon } from "obsidian";
 import { buildScanConfig, configHash, ScanConfig } from "./scanner";
 import { DEFAULT_SETTINGS, TroubleTagsSettings, TroubleTagsSettingTab } from "./settings";
 import { IndexStore } from "./index-store";
@@ -16,6 +16,8 @@ export default class TroubleTagsPlugin extends Plugin {
 	private storeQueue: Promise<void> = Promise.resolve();
 	private saveTimer: number | null = null;
 	private ribbonEl: HTMLElement | null = null;
+	private statusEl: HTMLElement | null = null;
+	private openCount = 0;
 
 	async loadSettings() {
 		const data = ((await this.loadData()) ?? {}) as Partial<TroubleTagsSettings>;
@@ -40,7 +42,31 @@ export default class TroubleTagsPlugin extends Plugin {
 
 	applyIcon() {
 		if (this.ribbonEl) setIcon(this.ribbonEl, this.settings.icon);
+		this.applyStatusBar();
 		// Open panel tabs pick up the new icon on their next open.
+	}
+
+	/** Creates or removes the status bar item to match the setting. No-op on mobile. */
+	applyStatusBar() {
+		if (!this.settings.statusBar || Platform.isMobile) {
+			this.statusEl?.remove();
+			this.statusEl = null;
+			return;
+		}
+		if (!this.statusEl) {
+			this.statusEl = this.addStatusBarItem();
+			this.statusEl.addClass("trouble-tags-status", "mod-clickable");
+			this.statusEl.addEventListener("click", () => { void this.toggleView(); });
+		}
+		this.statusEl.empty();
+		setIcon(this.statusEl.createSpan({ cls: "trouble-tags-status-icon" }), this.settings.icon);
+		this.statusEl.createSpan({ cls: "trouble-tags-status-count", text: String(this.openCount) });
+	}
+
+	updateStatus(openCount: number) {
+		if (openCount === this.openCount && this.statusEl) return;
+		this.openCount = openCount;
+		if (this.statusEl) this.applyStatusBar();
 	}
 
 	/** Serializes whole-index operations (load, build, refresh, invalidate, save). */
@@ -74,6 +100,7 @@ export default class TroubleTagsPlugin extends Plugin {
 		this.addSettingTab(new TroubleTagsSettingTab(this.app, this));
 		this.registerView(VIEW_TYPE, (leaf) => new TroubleView(leaf, this));
 
+		this.applyStatusBar();
 		this.ribbonEl = this.addRibbonIcon(this.settings.icon, "Trouble Tags", () => { void this.toggleView(); });
 
 		this.addCommand({

@@ -278,3 +278,14 @@
 .trouble-tags-more:hover {
 	color: var(--text-normal);
 }
+
+.trouble-tags-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.trouble-tags-status .svg-icon {
+	width: var(--icon-xs);
+	height: var(--icon-xs);
+}

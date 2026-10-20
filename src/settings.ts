@@ -24,6 +24,8 @@ export const DEFAULT_SETTINGS: TroubleTagsSettings = {
 	filters: { keyword: true, callout: true, task: true },
 };
 
+const EXCLUDE_APPLY_DELAY = 800;
+
 const ICON_OPTIONS: Array<[string, string]> = [
 	["list-todo", "List todo"],
 	["list-checks", "List checks"],
@@ -36,6 +38,7 @@ const ICON_OPTIONS: Array<[string, string]> = [
 
 export class TroubleTagsSettingTab extends PluginSettingTab {
 	plugin: TroubleTagsPlugin;
+	private excludeTimer: number | null = null;
 
 	constructor(app: App, plugin: TroubleTagsPlugin) {
 		super(app, plugin);
@@ -123,6 +126,7 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 				tg.setValue(plugin.settings.statusBar).onChange(async (value) => {
 					plugin.settings.statusBar = value;
 					await plugin.saveSettings();
+					plugin.applyStatusBar();
 				})
 			);
 
@@ -146,13 +150,18 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 			.addTextArea((ta) =>
 				ta
 					.setValue(plugin.settings.excludedFolders.join("\n"))
-					.onChange(async (value) => {
-						plugin.settings.excludedFolders = value
-							.split("\n")
-							.map((l) => l.trim().replace(/\/+$/, ""))
-							.filter((l) => l.length > 0);
-						await plugin.saveSettings();
-						plugin.onMatchSettingsChanged();
+					.onChange((value) => {
+						// Applying invalidates the index, so wait until typing pauses.
+						if (this.excludeTimer !== null) window.clearTimeout(this.excludeTimer);
+						this.excludeTimer = window.setTimeout(() => {
+							this.excludeTimer = null;
+							plugin.settings.excludedFolders = value
+								.split("\n")
+								.map((l) => l.trim().replace(/\/+$/, ""))
+								.filter((l) => l.length > 0);
+							void plugin.saveSettings();
+							plugin.onMatchSettingsChanged();
+						}, EXCLUDE_APPLY_DELAY);
 					})
 			);
 

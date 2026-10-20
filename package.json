@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-trouble-tags",
 	"version": "1.1.0",
-	"description": "Scans the active file for TODO, FIXME, BUG, NOTE, and WARN tags and lists them in a sidebar panel.",
+	"description": "Lists TODO/FIXME/NOTE keywords, list callouts and open tasks of the current note or the whole vault in a sidebar.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {

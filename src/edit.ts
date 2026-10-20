@@ -1,9 +1,12 @@
-import type { Hit } from "./scanner";
+import { struckRanges } from "./scanner.ts";
+import type { Hit } from "./scanner.ts";
+
+export type Replacement = { from: number; to: number; insert: string };
 
 export function doneReplacement(
   hit: Hit,
   lineText: string,
-): { from: number; to: number; insert: string } | null {
+): Replacement | null {
   const token = lineText.slice(hit.from, hit.to);
   if (hit.kind === "keyword") {
     if (token !== hit.label && token !== "#" + hit.label) return null;
@@ -19,14 +22,22 @@ export function doneReplacement(
 export function undoneReplacement(
   hit: Hit,
   lineText: string,
-): { from: number; to: number; insert: string } | null {
+): Replacement | null {
   if (hit.kind === "keyword") {
     if (!hit.done) return null;
     const token = lineText.slice(hit.from, hit.to);
     if (token !== hit.label && token !== "#" + hit.label) return null;
     // The scanner reports the token only; the surrounding "~~" sit outside the range.
-    if (lineText.slice(hit.from - 2, hit.to + 2) !== "~~" + token + "~~") return null;
-    return { from: hit.from - 2, to: hit.to + 2, insert: token };
+    if (lineText.slice(hit.from - 2, hit.to + 2) === "~~" + token + "~~") {
+      return { from: hit.from - 2, to: hit.to + 2, insert: token };
+    }
+    // Hand-struck wider span (~~fix TODO later~~): drop the pair, keep the text.
+    for (const [open, close] of struckRanges(lineText)) {
+      if (open <= hit.from && hit.to <= close) {
+        return { from: open - 2, to: close + 2, insert: lineText.slice(open, close) };
+      }
+    }
+    return null;
   }
   if (hit.kind === "task") {
     if (!/^\[[^ ]\]$/.test(lineText.slice(hit.from, hit.to))) return null;

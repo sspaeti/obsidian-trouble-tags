@@ -2,6 +2,7 @@ import { Editor, ItemView, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidia
 import type TroubleTagsPlugin from "./main";
 import { Hit, HitKind, scanText } from "./scanner";
 import { doneReplacement, undoneReplacement } from "./edit";
+import type { Replacement } from "./edit";
 import { renderRow } from "./rows";
 import { findMarkdownView } from "./workspace";
 
@@ -12,7 +13,7 @@ const VAULT_ROW_STEP = 500;
 const PROGRESS_THROTTLE = 100;
 
 type PanelScope = "note" | "vault";
-type EditFn = (hit: Hit, lineText: string) => { from: number; to: number; insert: string } | null;
+type EditFn = (hit: Hit, lineText: string) => Replacement | null;
 
 const FILTER_CHIPS: Array<{ kind: HitKind; text: string }> = [
 	{ kind: "keyword", text: "Keywords" },
@@ -92,6 +93,7 @@ export class TroubleView extends ItemView {
 		if (!file || file.extension !== "md") {
 			this.currentPath = null;
 			this.hits = [];
+			this.pushStatus();
 			this.render();
 			return;
 		}
@@ -100,7 +102,14 @@ export class TroubleView extends ItemView {
 		// A newer scan started while reading from disk; drop this result.
 		if (seq !== this.scanSeq) return;
 		this.hits = scanText(content, this.plugin.scanConfig);
+		this.pushStatus();
 		this.render();
+	}
+
+	/** Status bar count: visible, not done hits of the current note. */
+	private pushStatus() {
+		const open = this.currentPath ? this.hits.filter((h) => !h.done && this.plugin.settings.filters[h.kind]).length : 0;
+		this.plugin.updateStatus(open);
 	}
 
 	onConfigChanged() {
@@ -316,6 +325,7 @@ export class TroubleView extends ItemView {
 		btn.addEventListener("click", () => {
 			toggle();
 			void this.plugin.saveSettings();
+			this.pushStatus();
 			this.render();
 		});
 	}

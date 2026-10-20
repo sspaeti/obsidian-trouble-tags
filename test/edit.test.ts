@@ -67,3 +67,14 @@ test("undone callout returns null", () => {
   const hit: Hit = { line: 0, kind: "callout", label: "?", text: "q", done: true, from: 2, to: 3 };
   assert.equal(undoneReplacement(hit, "- ? q"), null);
 });
+test("undone keyword inside a wider strike span removes the pair, keeps the text", () => {
+  assert.deepEqual(undoneReplacement(done(kw(6, 10)), "~~fix TODO later~~ x"), { from: 0, to: 18, insert: "fix TODO later" });
+});
+test("undone keyword flagged done but outside any strike span returns null", () => {
+  assert.equal(undoneReplacement(done(kw(4, 8)), "fix TODO later ~~x~~"), null);
+  assert.equal(undoneReplacement(done(kw(4, 8)), "fix TODO later"), null);
+});
+test("undone task [X] uppercase becomes [ ]", () => {
+  const hit: Hit = { line: 0, kind: "task", label: "task", text: "a", done: true, from: 2, to: 5 };
+  assert.deepEqual(undoneReplacement(hit, "- [X] a"), { from: 2, to: 5, insert: "[ ]" });
+});
