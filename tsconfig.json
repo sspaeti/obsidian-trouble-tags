@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"target": "ES2021",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"noImplicitAny": true,
+		"allowImportingTsExtensions": true,
+		"noEmit": true,
+		"isolatedModules": true,
+		"lib": ["DOM", "ES2021"]
+	},
+	"include": ["src/**/*.ts", "test/**/*.ts"]
+}

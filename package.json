@@ -1,0 +1,23 @@
+{
+	"name": "obsidian-trouble-tags",
+	"version": "2.0.0",
+	"description": "Lists TODO/FIXME/NOTE keywords, list callouts and open tasks of the current note or the whole vault in a sidebar.",
+	"main": "main.js",
+	"type": "module",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"test": "node --test \"test/**/*.test.ts\"",
+		"version": "node version-bump.mjs && git add manifest.json versions.json"
+	},
+	"keywords": [],
+	"author": "Simon Späti",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^22.15.17",
+		"esbuild": "0.25.5",
+		"obsidian": "latest",
+		"tslib": "2.4.0",
+		"typescript": "^5.8.3"
+	}
+}

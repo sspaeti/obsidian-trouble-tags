@@ -79,3 +79,272 @@
 	background-color: rgba(234, 179, 8, 0.15);
 	color: rgb(234, 179, 8);
 }
+
+.trouble-tags-label-idea {
+	background-color: rgba(168, 85, 247, 0.15);
+	color: rgb(168, 85, 247);
+}
+
+.trouble-tags-label-tk {
+	background-color: rgba(156, 163, 175, 0.15);
+	color: rgb(156, 163, 175);
+}
+
+/* Custom keywords cycle through this palette (index in settings mod 6). */
+.trouble-tags-label-custom-0 {
+	background-color: rgba(236, 72, 153, 0.15);
+	color: rgb(236, 72, 153);
+}
+
+.trouble-tags-label-custom-1 {
+	background-color: rgba(20, 184, 166, 0.15);
+	color: rgb(20, 184, 166);
+}
+
+.trouble-tags-label-custom-2 {
+	background-color: rgba(99, 102, 241, 0.15);
+	color: rgb(99, 102, 241);
+}
+
+.trouble-tags-label-custom-3 {
+	background-color: rgba(132, 204, 22, 0.15);
+	color: rgb(132, 204, 22);
+}
+
+.trouble-tags-label-custom-4 {
+	background-color: rgba(6, 182, 212, 0.15);
+	color: rgb(6, 182, 212);
+}
+
+.trouble-tags-label-custom-5 {
+	background-color: rgba(244, 63, 94, 0.15);
+	color: rgb(244, 63, 94);
+}
+
+.trouble-tags-label-callout {
+	background-color: var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.trouble-tags-label-task {
+	background-color: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+	color: var(--interactive-accent);
+}
+
+.trouble-tags-header {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding-bottom: 8px;
+}
+
+.trouble-tags-chip {
+	font-size: var(--font-ui-smaller);
+	padding: 2px 8px;
+	height: auto;
+	border-radius: var(--radius-l);
+	background-color: transparent;
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: none;
+	cursor: pointer;
+}
+
+.trouble-tags-chip.is-active {
+	background-color: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+.trouble-tags-row.is-done .trouble-tags-context {
+	text-decoration: line-through;
+	color: var(--text-faint);
+}
+
+.trouble-tags-row .trouble-tags-context {
+	flex: 1 1 auto;
+}
+
+.trouble-tags-done,
+.trouble-tags-undone {
+	flex-shrink: 0;
+	margin-left: auto;
+	padding: 0 4px;
+	height: auto;
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+	opacity: 0;
+	cursor: pointer;
+	align-self: center;
+}
+
+.trouble-tags-done:hover,
+.trouble-tags-undone:hover {
+	color: var(--interactive-accent);
+}
+
+.trouble-tags-done svg,
+.trouble-tags-undone svg {
+	width: 14px;
+	height: 14px;
+}
+
+.trouble-tags-row:hover .trouble-tags-done,
+.trouble-tags-row:focus-within .trouble-tags-done,
+.trouble-tags-row:hover .trouble-tags-undone,
+.trouble-tags-row:focus-within .trouble-tags-undone {
+	opacity: 1;
+}
+
+/* Touch devices have no hover: always show the buttons so a tap never hits an invisible one. */
+.is-mobile .trouble-tags-done,
+.is-mobile .trouble-tags-undone {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.trouble-tags-done,
+	.trouble-tags-undone {
+		opacity: 1;
+	}
+}
+
+.trouble-tags-scope {
+	padding: 2px 6px;
+	height: auto;
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.trouble-tags-scope:hover {
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
+}
+
+.trouble-tags-scope svg {
+	width: 14px;
+	height: 14px;
+}
+
+.trouble-tags-build {
+	display: block;
+	margin: 0 auto;
+	cursor: pointer;
+}
+
+.trouble-tags-progress {
+	color: var(--text-muted);
+	padding: 16px 8px;
+	text-align: center;
+}
+
+.trouble-tags-file {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	padding: 4px;
+	margin-top: 6px;
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	position: sticky;
+	top: 0;
+	background-color: var(--background-secondary);
+	z-index: 1;
+}
+
+.trouble-tags-file:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.trouble-tags-file-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.trouble-tags-file-count {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-normal);
+	flex-shrink: 0;
+}
+
+.trouble-tags-file.is-collapsed + .trouble-tags-file-rows {
+	display: none;
+}
+
+.trouble-tags-more {
+	padding: 6px 4px;
+	text-align: center;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.trouble-tags-more:hover {
+	color: var(--text-normal);
+}
+
+.trouble-tags-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.trouble-tags-status .svg-icon {
+	width: var(--icon-xs);
+	height: var(--icon-xs);
+}
+
+.trouble-tags-sort {
+	font-size: var(--font-ui-smaller);
+	height: auto;
+	padding: 2px 20px 2px 6px;
+}
+
+.trouble-tags-fold,
+.trouble-tags-refresh {
+	padding: 2px 6px;
+	height: auto;
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.trouble-tags-fold:hover,
+.trouble-tags-refresh:hover:not(:disabled) {
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
+}
+
+.trouble-tags-fold svg,
+.trouble-tags-refresh svg {
+	width: 14px;
+	height: 14px;
+}
+
+.trouble-tags-icon-preview {
+	display: inline-flex;
+	align-items: center;
+	margin-right: var(--size-4-2);
+}
+
+.trouble-tags-icon-preview svg {
+	width: var(--icon-l);
+	height: var(--icon-l);
+}
+
+.trouble-tags-refresh:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
