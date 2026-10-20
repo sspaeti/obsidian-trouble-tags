@@ -99,7 +99,8 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 				tg.setValue(plugin.settings.showDone).onChange(async (value) => {
 					plugin.settings.showDone = value;
 					await plugin.saveSettings();
-					plugin.onMatchSettingsChanged();
+					// Done hits are kept in the index; only the view filter changes.
+					plugin.getView()?.render();
 				})
 			);
 
@@ -133,10 +134,12 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Rebuild index")
-			.setDesc("Discard the cached index. Build it again from the panel.")
+			.setDesc("Discard the cached index and build it again when the panel shows the whole vault.")
 			.addButton((btn) =>
-				btn.setButtonText("Rebuild index").onClick(() => {
-					plugin.onMatchSettingsChanged();
+				btn.setButtonText("Rebuild index").onClick(async () => {
+					await plugin.runStoreOp(() => plugin.indexStore.invalidate());
+					const view = plugin.getView();
+					if (view && plugin.settings.scope === "vault") void view.buildIndex();
 				})
 			);
 
@@ -144,8 +147,9 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 			.setName("Clear index")
 			.setDesc("Delete the cached index.")
 			.addButton((btn) =>
-				btn.setButtonText("Clear index").onClick(() => {
-					plugin.onMatchSettingsChanged();
+				btn.setButtonText("Clear index").onClick(async () => {
+					await plugin.runStoreOp(() => plugin.indexStore.invalidate());
+					plugin.getView()?.render();
 				})
 			);
 	}

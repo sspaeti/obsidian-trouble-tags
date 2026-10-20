@@ -2,15 +2,16 @@ import { Editor, ItemView, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidia
 import type TroubleTagsPlugin from "./main";
 import { Hit, HitKind, scanText } from "./scanner";
 import { doneReplacement } from "./edit";
-import { DEFAULT_SETTINGS } from "./settings";
+import { renderRow } from "./rows";
 import { findMarkdownView } from "./workspace";
 
 export const VIEW_TYPE = "trouble-tags-view";
 
-// Keywords with a dedicated colour class in styles.css.
-const BUILTIN_KEYWORDS = DEFAULT_SETTINGS.keywords;
-const CUSTOM_PALETTE_SIZE = 6;
 const NOTE_SCAN_DELAY = 250;
+const VAULT_ROW_STEP = 500;
+const PROGRESS_THROTTLE = 100;
+
+type PanelScope = "note" | "vault";
 
 const FILTER_CHIPS: Array<{ kind: HitKind; text: string }> = [
 	{ kind: "keyword", text: "Keywords" },
@@ -25,6 +26,10 @@ export class TroubleView extends ItemView {
 	private noteScanTimer: number | null = null;
 	private scanSeq = 0;
 	private lastRenderKey: string | null = null;
+	private collapsed = new Set<string>();
+	private rowLimit = VAULT_ROW_STEP;
+	private progressText = "Indexing 0/0";
+	private progressEl: HTMLElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: TroubleTagsPlugin) {
 		super(leaf);
@@ -35,12 +40,19 @@ export class TroubleView extends ItemView {
 	getDisplayText() { return "Trouble Tags"; }
 	getIcon() { return "alert-triangle"; }
 
+	get panelScope(): PanelScope {
+		return this.plugin.settings.scope;
+	}
+
 	async onOpen() {
 		await this.scanNote(this.app.workspace.getActiveFile());
+		// Refresh is a no-op without an index; it never builds one.
+		if (this.panelScope === "vault") void this.refreshVault();
 	}
 
 	onClose() {
 		this.clearNoteScanTimer();
+		this.progressEl = null;
 		return Promise.resolve();
 	}
 
@@ -94,23 +106,69 @@ export class TroubleView extends ItemView {
 		this.rescanPath(this.currentPath);
 	}
 
-	private visibleHits(): Hit[] {
+	async setScope(scope: PanelScope) {
+		if (scope === this.panelScope) return;
+		this.plugin.settings.scope = scope;
+		void this.plugin.saveSettings();
+		if (scope === "note") {
+			this.rescanPath(this.currentPath);
+			return;
+		}
+		// Show the cached index (or the build button) at once, then catch up.
+		this.render();
+		await this.refreshVault();
+	}
+
+	private async refreshVault() {
+		const store = this.plugin.indexStore;
+		if (store.files === null) return;
+		await this.plugin.runStoreOp(() => store.refresh());
+		this.renderVault();
+	}
+
+	async buildIndex() {
+		const plugin = this.plugin;
+		if (plugin.indexBuilding) return;
+		plugin.indexBuilding = true;
+		this.progressText = "Indexing 0/0";
+		this.render();
+		let lastPaint = 0;
+		const store = plugin.indexStore;
+		try {
+			await plugin.runStoreOp(async () => {
+				await store.build((done, total) => {
+					const now = Date.now();
+					if (now - lastPaint < PROGRESS_THROTTLE && done < total) return;
+					lastPaint = now;
+					this.progressText = `Indexing ${done}/${total}`;
+					if (this.progressEl?.isConnected) this.progressEl.setText(this.progressText);
+				});
+				// Files touched during the build were marked dirty; pick them up now.
+				if (store.dirty.size > 0) await store.refresh();
+			});
+		} finally {
+			plugin.indexBuilding = false;
+		}
+		this.renderVault();
+	}
+
+	private isVisible(hit: Hit): boolean {
 		const { filters, showDone } = this.plugin.settings;
-		return this.hits.filter((h) => filters[h.kind] && (showDone || !h.done));
+		return filters[hit.kind] && (showDone || !hit.done);
 	}
 
 	render() {
-		const visible = this.visibleHits();
+		if (this.panelScope === "vault") {
+			this.renderVault();
+			return;
+		}
+		const visible = this.hits.filter((h) => this.isVisible(h));
 		const { filters, showDone } = this.plugin.settings;
-		const key = JSON.stringify(visible) + "\n" + this.currentPath + "\n" + JSON.stringify({ filters, showDone });
+		const key = "note\n" + JSON.stringify(visible) + "\n" + this.currentPath + "\n" + JSON.stringify({ filters, showDone });
 		if (key === this.lastRenderKey) return;
 		this.lastRenderKey = key;
 
-		const root = this.contentEl;
-		root.empty();
-		const container = root.createDiv({ cls: "trouble-tags-container" });
-		this.renderHeader(container);
-
+		const container = this.resetContainer();
 		if (!this.currentPath) {
 			container.createDiv({ cls: "trouble-tags-empty", text: "No file open" });
 			return;
@@ -122,12 +180,112 @@ export class TroubleView extends ItemView {
 			return;
 		}
 		const path = this.currentPath;
-		for (const hit of visible) this.renderRow(container, path, hit);
+		for (const hit of visible) {
+			renderRow(container, hit, {
+				location: ":" + (hit.line + 1),
+				keywords: this.plugin.settings.keywords,
+				onJump: () => this.jumpTo(path, hit.line),
+				onDone: () => { void this.markDone(path, hit); },
+			});
+		}
+	}
+
+	renderVault() {
+		if (this.panelScope !== "vault") return;
+		const plugin = this.plugin;
+		const files = plugin.indexStore.files;
+		const groups: Array<{ path: string; mtime: number; hits: Hit[] }> = [];
+		if (files !== null) {
+			for (const path in files) {
+				const entry = files[path];
+				const hits = entry.hits.filter((h) => this.isVisible(h));
+				if (hits.length > 0) groups.push({ path, mtime: entry.mtime, hits });
+			}
+			groups.sort((a, b) => b.mtime - a.mtime || a.path.localeCompare(b.path));
+		}
+		const { filters, showDone } = plugin.settings;
+		const key = "vault\n" + JSON.stringify([
+			files === null, plugin.indexBuilding, groups.map((g) => [g.path, g.hits]),
+			filters, showDone, Array.from(this.collapsed).sort(), this.rowLimit,
+		]);
+		if (key === this.lastRenderKey) return;
+		this.lastRenderKey = key;
+
+		const container = this.resetContainer();
+		this.progressEl = null;
+		if (files === null) {
+			container.createDiv({ cls: "trouble-tags-filename", text: "Whole vault" });
+			if (plugin.indexBuilding) {
+				this.progressEl = container.createDiv({ cls: "trouble-tags-progress", text: this.progressText });
+			} else {
+				container.createDiv({ cls: "trouble-tags-empty", text: "No index yet" });
+			}
+			const btn = container.createEl("button", { cls: ["trouble-tags-build", "mod-cta"], text: "Build index" });
+			btn.disabled = plugin.indexBuilding;
+			btn.addEventListener("click", () => { void this.buildIndex(); });
+			return;
+		}
+		const n = groups.length;
+		container.createDiv({ cls: "trouble-tags-filename", text: `Whole vault · ${n} ${n === 1 ? "file" : "files"}` });
+		if (n === 0) {
+			container.createDiv({ cls: "trouble-tags-empty", text: "Nothing found" });
+			return;
+		}
+
+		let rows = 0;
+		for (const g of groups) {
+			if (rows >= this.rowLimit) break;
+			const name = g.path.split("/").pop() ?? g.path;
+			const header = container.createDiv({ cls: "trouble-tags-file", attr: { "aria-label": g.path } });
+			header.toggleClass("is-collapsed", this.collapsed.has(g.path));
+			header.createSpan({ cls: "trouble-tags-file-name", text: name.replace(/\.md$/, "") });
+			header.createSpan({ cls: "trouble-tags-file-count", text: String(g.hits.length) });
+			header.addEventListener("click", () => {
+				if (this.collapsed.has(g.path)) this.collapsed.delete(g.path);
+				else this.collapsed.add(g.path);
+				header.toggleClass("is-collapsed", this.collapsed.has(g.path));
+			});
+			const rowsEl = container.createDiv({ cls: "trouble-tags-file-rows" });
+			for (const hit of g.hits) {
+				if (rows >= this.rowLimit) break;
+				rows++;
+				renderRow(rowsEl, hit, {
+					location: `${name}:${hit.line + 1}`,
+					keywords: plugin.settings.keywords,
+					onJump: () => this.jumpTo(g.path, hit.line),
+					onDone: () => { void this.markDone(g.path, hit); },
+				});
+			}
+		}
+		const total = groups.reduce((sum, g) => sum + g.hits.length, 0);
+		if (rows < total) {
+			const more = container.createDiv({ cls: "trouble-tags-more", text: "Show more" });
+			more.addEventListener("click", () => {
+				this.rowLimit += VAULT_ROW_STEP;
+				this.renderVault();
+			});
+		}
+	}
+
+	private resetContainer(): HTMLElement {
+		const root = this.contentEl;
+		root.empty();
+		const container = root.createDiv({ cls: "trouble-tags-container" });
+		this.renderHeader(container);
+		return container;
 	}
 
 	private renderHeader(container: HTMLElement) {
 		const settings = this.plugin.settings;
 		const header = container.createDiv({ cls: "trouble-tags-header" });
+		const vault = this.panelScope === "vault";
+		const scopeBtn = header.createEl("button", {
+			cls: "trouble-tags-scope",
+			attr: { "aria-label": vault ? "Whole vault" : "Current note" },
+		});
+		setIcon(scopeBtn, vault ? "folder-open" : "file-text");
+		scopeBtn.addEventListener("click", () => { void this.setScope(vault ? "note" : "vault"); });
+
 		for (const chip of FILTER_CHIPS) {
 			this.renderChip(header, chip.text, settings.filters[chip.kind], () => {
 				settings.filters[chip.kind] = !settings.filters[chip.kind];
@@ -148,37 +306,6 @@ export class TroubleView extends ItemView {
 		});
 	}
 
-	private renderRow(container: HTMLElement, path: string, hit: Hit) {
-		const row = container.createDiv({ cls: "trouble-tags-row" });
-		if (hit.done) row.addClass("is-done");
-
-		row.createSpan({ cls: ["trouble-tags-label", this.labelClass(hit)], text: hit.kind === "task" ? "task" : hit.label });
-		if (hit.secondary) {
-			row.createSpan({ cls: ["trouble-tags-label", "trouble-tags-label-callout"], text: hit.secondary });
-		}
-		row.createSpan({ cls: "trouble-tags-line", text: ":" + (hit.line + 1) });
-		row.createSpan({ cls: "trouble-tags-context", text: hit.text });
-
-		if (hit.kind !== "callout" && !hit.done) {
-			const btn = row.createEl("button", { cls: "trouble-tags-done", attr: { "aria-label": "Mark done" } });
-			setIcon(btn, "check");
-			btn.addEventListener("click", (evt) => {
-				evt.stopPropagation();
-				this.markDone(path, hit);
-			});
-		}
-
-		row.addEventListener("click", () => this.jumpTo(path, hit.line));
-	}
-
-	private labelClass(hit: Hit): string {
-		if (hit.kind === "callout") return "trouble-tags-label-callout";
-		if (hit.kind === "task") return "trouble-tags-label-task";
-		if (BUILTIN_KEYWORDS.includes(hit.label)) return "trouble-tags-label-" + hit.label.toLowerCase();
-		const i = Math.max(0, this.plugin.settings.keywords.indexOf(hit.label));
-		return "trouble-tags-label-custom-" + (i % CUSTOM_PALETTE_SIZE);
-	}
-
 	jumpTo(path: string, line: number) {
 		const mv = findMarkdownView(this.app, path);
 		if (mv && mv.getMode() === "source") {
@@ -196,22 +323,61 @@ export class TroubleView extends ItemView {
 		void leaf.openFile(file, { eState: { line } });
 	}
 
-	markDone(path: string, hit: Hit) {
+	async markDone(path: string, hit: Hit) {
 		const mv = findMarkdownView(this.app, path);
-		// A MarkdownView always has an editor, even in reading mode; only write in source mode.
-		if (!mv || mv.getMode() !== "source") {
+		// A MarkdownView always has an editor, even in reading mode; only use it in source mode.
+		if (mv && mv.getMode() === "source") {
+			this.markDoneInEditor(mv.editor, path, hit);
+			return;
+		}
+		if (this.panelScope === "note") {
 			new Notice("Open the note in editing mode to mark done");
 			return;
 		}
-		const editor = mv.editor;
+		const file = this.app.vault.getFileByPath(path);
+		if (!file) {
+			new Notice("File not found");
+			return;
+		}
+		let changed = false;
+		await this.app.vault.process(file, (data) => {
+			const lines = data.split("\n");
+			const l = lines[hit.line] ?? "";
+			const r = doneReplacement(hit, l);
+			if (!r) return data;
+			lines[hit.line] = l.slice(0, r.from) + r.insert + l.slice(r.to);
+			changed = true;
+			return lines.join("\n");
+		});
+		if (!changed) new Notice("Line changed, rescanning");
+		await this.updateIndexEntry(path, file.stat.mtime);
+	}
+
+	private markDoneInEditor(editor: Editor, path: string, hit: Hit) {
 		const lineText = hit.line < editor.lineCount() ? editor.getLine(hit.line) : "";
 		const r = doneReplacement(hit, lineText);
 		if (r) {
 			editor.replaceRange(r.insert, { line: hit.line, ch: r.from }, { line: hit.line, ch: r.to });
-			this.scheduleNoteScan(editor);
+			if (path === this.currentPath) this.scheduleNoteScan(editor);
+		} else {
+			new Notice("Line changed, rescanning");
+			if (path === this.currentPath) void this.scanNote(this.app.vault.getFileByPath(path), editor.getValue());
+		}
+		if (this.panelScope === "vault") {
+			const mtime = this.app.vault.getFileByPath(path)?.stat.mtime ?? Date.now();
+			void this.updateIndexEntry(path, mtime, editor.getValue());
+		}
+	}
+
+	private async updateIndexEntry(path: string, mtime: number, text?: string) {
+		const store = this.plugin.indexStore;
+		try {
+			if (!(await store.updateFile(path, mtime, text))) return;
+		} catch {
+			store.markDirty(path);
 			return;
 		}
-		new Notice("Line changed, rescanning");
-		void this.scanNote(this.app.vault.getFileByPath(path), editor.getValue());
+		this.renderVault();
+		this.plugin.scheduleIndexSave();
 	}
 }

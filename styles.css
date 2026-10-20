@@ -191,3 +191,85 @@
 .trouble-tags-row:focus-within .trouble-tags-done {
 	opacity: 1;
 }
+
+.trouble-tags-scope {
+	padding: 2px 6px;
+	height: auto;
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.trouble-tags-scope:hover {
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
+}
+
+.trouble-tags-scope svg {
+	width: 14px;
+	height: 14px;
+}
+
+.trouble-tags-build {
+	display: block;
+	margin: 0 auto;
+	cursor: pointer;
+}
+
+.trouble-tags-progress {
+	color: var(--text-muted);
+	padding: 16px 8px;
+	text-align: center;
+}
+
+.trouble-tags-file {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	padding: 4px;
+	margin-top: 6px;
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	position: sticky;
+	top: 0;
+	background-color: var(--background-secondary);
+	z-index: 1;
+}
+
+.trouble-tags-file:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.trouble-tags-file-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.trouble-tags-file-count {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-normal);
+	flex-shrink: 0;
+}
+
+.trouble-tags-file.is-collapsed + .trouble-tags-file-rows {
+	display: none;
+}
+
+.trouble-tags-more {
+	padding: 6px 4px;
+	text-align: center;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.trouble-tags-more:hover {
+	color: var(--text-normal);
+}

@@ -1,12 +1,20 @@
-import { Plugin, TFile } from "obsidian";
-import { buildScanConfig, ScanConfig } from "./scanner";
+import { Notice, Plugin, TAbstractFile, TFile, normalizePath } from "obsidian";
+import { buildScanConfig, configHash, ScanConfig } from "./scanner";
 import { DEFAULT_SETTINGS, TroubleTagsSettings, TroubleTagsSettingTab } from "./settings";
+import { IndexStore } from "./index-store";
+import { createIndexIO } from "./index-io";
 import { TroubleView, VIEW_TYPE } from "./view";
 import { findMarkdownView } from "./workspace";
+
+const INDEX_SAVE_DELAY = 2000;
 
 export default class TroubleTagsPlugin extends Plugin {
 	settings!: TroubleTagsSettings;
 	scanConfig!: ScanConfig;
+	indexStore!: IndexStore;
+	indexBuilding = false;
+	private storeQueue: Promise<void> = Promise.resolve();
+	private saveTimer: number | null = null;
 
 	async loadSettings() {
 		const data = ((await this.loadData()) ?? {}) as Partial<TroubleTagsSettings>;
@@ -23,10 +31,40 @@ export default class TroubleTagsPlugin extends Plugin {
 	onMatchSettingsChanged() {
 		this.scanConfig = buildScanConfig(this.settings);
 		this.getView()?.onConfigChanged();
+		// Back to the "Build index" state; never rebuilds on its own.
+		void this.runStoreOp(() => this.indexStore.invalidate()).then(() => {
+			if (this.settings.scope === "vault") this.getView()?.render();
+		});
+	}
+
+	/** Serializes whole-index operations (load, build, refresh, invalidate, save). */
+	runStoreOp(fn: () => Promise<void>): Promise<void> {
+		const run = this.storeQueue.then(fn).catch(() => {
+			new Notice("Trouble Tags: index operation failed");
+		});
+		this.storeQueue = run;
+		return run;
+	}
+
+	scheduleIndexSave() {
+		if (this.saveTimer !== null) window.clearTimeout(this.saveTimer);
+		this.saveTimer = window.setTimeout(() => {
+			this.saveTimer = null;
+			void this.runStoreOp(() => this.indexStore.save());
+		}, INDEX_SAVE_DELAY);
 	}
 
 	async onload() {
 		await this.loadSettings();
+		const indexPath = normalizePath(`${this.manifest.dir}/index.json`);
+		this.indexStore = new IndexStore(createIndexIO(this.app, indexPath), () => ({
+			scan: this.scanConfig,
+			hash: configHash(this.settings),
+			excludedFolders: this.settings.excludedFolders,
+		}));
+		// Reads the cached index only; never scans the vault.
+		void this.runStoreOp(() => this.indexStore.load()).then(() => this.getView()?.render());
+
 		this.addSettingTab(new TroubleTagsSettingTab(this.app, this));
 		this.registerView(VIEW_TYPE, (leaf) => new TroubleView(leaf, this));
 
@@ -56,17 +94,74 @@ export default class TroubleTagsPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
+				if (!(file instanceof TFile) || file.extension !== "md") return;
 				const view = this.getView();
-				if (!view) return;
-				if (!(file instanceof TFile) || file.path !== view.currentPath) return;
-				// An open editor already drives rescans through editor-change.
-				if (findMarkdownView(this.app, file.path)) return;
-				void view.scanNote(file);
+				// An open editor already drives note rescans through editor-change.
+				if (view && file.path === view.currentPath && !findMarkdownView(this.app, file.path)) {
+					void view.scanNote(file);
+				}
+				void this.onIndexModify(file);
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("delete", (file) => {
+				if (!this.isIndexable(file)) return;
+				if (this.indexStore.removeFile(file.path)) this.onIndexChanged();
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				if (!this.isIndexable(file)) return;
+				const files = this.indexStore.files;
+				if (files === null) return;
+				const had = oldPath in files;
+				this.indexStore.renameFile(oldPath, file.path);
+				if (had) this.onIndexChanged();
 			})
 		);
 	}
 
+	/** True when an index exists to keep fresh. During a build, marks the path dirty instead. */
+	private isIndexable(file: TAbstractFile): boolean {
+		if (!(file instanceof TFile)) return false;
+		if (this.indexStore.files === null) {
+			if (this.indexBuilding) this.indexStore.markDirty(file.path);
+			return false;
+		}
+		return true;
+	}
+
+	private async onIndexModify(file: TFile) {
+		if (!this.isIndexable(file)) return;
+		const store = this.indexStore;
+		const view = this.getView();
+		if (!view || this.settings.scope !== "vault") {
+			store.markDirty(file.path);
+			return;
+		}
+		let changed = false;
+		try {
+			changed = await store.updateFile(file.path, file.stat.mtime);
+		} catch {
+			store.markDirty(file.path);
+			return;
+		}
+		if (changed) this.onIndexChanged();
+	}
+
+	private onIndexChanged() {
+		if (this.settings.scope === "vault") this.getView()?.renderVault();
+		this.scheduleIndexSave();
+	}
+
 	onunload() {
+		if (this.saveTimer !== null) {
+			window.clearTimeout(this.saveTimer);
+			this.saveTimer = null;
+			void this.indexStore.save().catch(() => {});
+		}
 	}
 
 	getView(): TroubleView | null {
