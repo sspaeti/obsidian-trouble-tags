@@ -1,4 +1,4 @@
-import { Notice, Plugin, TAbstractFile, TFile, normalizePath } from "obsidian";
+import { Notice, Plugin, TAbstractFile, TFile, normalizePath, setIcon } from "obsidian";
 import { buildScanConfig, configHash, ScanConfig } from "./scanner";
 import { DEFAULT_SETTINGS, TroubleTagsSettings, TroubleTagsSettingTab } from "./settings";
 import { IndexStore } from "./index-store";
@@ -15,6 +15,7 @@ export default class TroubleTagsPlugin extends Plugin {
 	indexBuilding = false;
 	private storeQueue: Promise<void> = Promise.resolve();
 	private saveTimer: number | null = null;
+	private ribbonEl: HTMLElement | null = null;
 
 	async loadSettings() {
 		const data = ((await this.loadData()) ?? {}) as Partial<TroubleTagsSettings>;
@@ -35,6 +36,11 @@ export default class TroubleTagsPlugin extends Plugin {
 		void this.runStoreOp(() => this.indexStore.invalidate()).then(() => {
 			if (this.settings.scope === "vault") this.getView()?.render();
 		});
+	}
+
+	applyIcon() {
+		if (this.ribbonEl) setIcon(this.ribbonEl, this.settings.icon);
+		// Open panel tabs pick up the new icon on their next open.
 	}
 
 	/** Serializes whole-index operations (load, build, refresh, invalidate, save). */
@@ -68,7 +74,7 @@ export default class TroubleTagsPlugin extends Plugin {
 		this.addSettingTab(new TroubleTagsSettingTab(this.app, this));
 		this.registerView(VIEW_TYPE, (leaf) => new TroubleView(leaf, this));
 
-		this.addRibbonIcon("alert-triangle", "Trouble Tags", () => { void this.toggleView(); });
+		this.ribbonEl = this.addRibbonIcon(this.settings.icon, "Trouble Tags", () => { void this.toggleView(); });
 
 		this.addCommand({
 			id: "toggle-trouble-tags",

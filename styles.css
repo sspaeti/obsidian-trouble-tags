@@ -165,7 +165,8 @@
 	flex: 1 1 auto;
 }
 
-.trouble-tags-done {
+.trouble-tags-done,
+.trouble-tags-undone {
 	flex-shrink: 0;
 	margin-left: auto;
 	padding: 0 4px;
@@ -178,17 +179,21 @@
 	align-self: center;
 }
 
-.trouble-tags-done:hover {
+.trouble-tags-done:hover,
+.trouble-tags-undone:hover {
 	color: var(--interactive-accent);
 }
 
-.trouble-tags-done svg {
+.trouble-tags-done svg,
+.trouble-tags-undone svg {
 	width: 14px;
 	height: 14px;
 }
 
 .trouble-tags-row:hover .trouble-tags-done,
-.trouble-tags-row:focus-within .trouble-tags-done {
+.trouble-tags-row:focus-within .trouble-tags-done,
+.trouble-tags-row:hover .trouble-tags-undone,
+.trouble-tags-row:focus-within .trouble-tags-undone {
 	opacity: 1;
 }
 

@@ -12,6 +12,7 @@ export interface RowOptions {
 	keywords: string[];
 	onJump: () => void;
 	onDone: () => void;
+	onUndone: () => void;
 }
 
 export function labelClass(hit: Hit, keywords: string[]): string {
@@ -39,6 +40,15 @@ export function renderRow(container: HTMLElement, hit: Hit, opts: RowOptions) {
 		btn.addEventListener("click", (evt) => {
 			evt.stopPropagation();
 			opts.onDone();
+		});
+	}
+
+	if (hit.kind !== "callout" && hit.done) {
+		const btn = row.createEl("button", { cls: "trouble-tags-undone", attr: { "aria-label": "Mark undone" } });
+		setIcon(btn, "undo-2");
+		btn.addEventListener("click", (evt) => {
+			evt.stopPropagation();
+			opts.onUndone();
 		});
 	}
 

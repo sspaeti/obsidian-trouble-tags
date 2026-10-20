@@ -1,7 +1,7 @@
 import { Editor, ItemView, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type TroubleTagsPlugin from "./main";
 import { Hit, HitKind, scanText } from "./scanner";
-import { doneReplacement } from "./edit";
+import { doneReplacement, undoneReplacement } from "./edit";
 import { renderRow } from "./rows";
 import { findMarkdownView } from "./workspace";
 
@@ -12,6 +12,7 @@ const VAULT_ROW_STEP = 500;
 const PROGRESS_THROTTLE = 100;
 
 type PanelScope = "note" | "vault";
+type EditFn = (hit: Hit, lineText: string) => { from: number; to: number; insert: string } | null;
 
 const FILTER_CHIPS: Array<{ kind: HitKind; text: string }> = [
 	{ kind: "keyword", text: "Keywords" },
@@ -38,7 +39,7 @@ export class TroubleView extends ItemView {
 
 	getViewType() { return VIEW_TYPE; }
 	getDisplayText() { return "Trouble Tags"; }
-	getIcon() { return "alert-triangle"; }
+	getIcon() { return this.plugin.settings.icon; }
 
 	get panelScope(): PanelScope {
 		return this.plugin.settings.scope;
@@ -192,6 +193,7 @@ export class TroubleView extends ItemView {
 				keywords: this.plugin.settings.keywords,
 				onJump: () => this.jumpTo(path, hit.line),
 				onDone: () => { void this.markDone(path, hit); },
+				onUndone: () => { void this.markUndone(path, hit); },
 			});
 		}
 	}
@@ -265,6 +267,7 @@ export class TroubleView extends ItemView {
 					keywords: plugin.settings.keywords,
 					onJump: () => this.jumpTo(g.path, hit.line),
 					onDone: () => { void this.markDone(g.path, hit); },
+					onUndone: () => { void this.markUndone(g.path, hit); },
 				});
 			}
 		}
@@ -334,15 +337,23 @@ export class TroubleView extends ItemView {
 		void leaf.openFile(file, { eState: { line } });
 	}
 
-	async markDone(path: string, hit: Hit) {
+	markDone(path: string, hit: Hit) {
+		return this.applyEdit(path, hit, doneReplacement, "mark done", "Could not mark done");
+	}
+
+	markUndone(path: string, hit: Hit) {
+		return this.applyEdit(path, hit, undoneReplacement, "mark undone", "Could not mark undone");
+	}
+
+	private async applyEdit(path: string, hit: Hit, replacement: EditFn, action: string, failText: string) {
 		const mv = findMarkdownView(this.app, path);
 		// A MarkdownView always has an editor, even in reading mode; only use it in source mode.
 		if (mv && mv.getMode() === "source") {
-			this.markDoneInEditor(mv.editor, path, hit);
+			this.applyEditInEditor(mv.editor, path, hit, replacement);
 			return;
 		}
 		if (this.panelScope === "note") {
-			new Notice("Open the note in editing mode to mark done");
+			new Notice(`Open the note in editing mode to ${action}`);
 			return;
 		}
 		const file = this.app.vault.getFileByPath(path);
@@ -355,23 +366,23 @@ export class TroubleView extends ItemView {
 			await this.app.vault.process(file, (data) => {
 				const lines = data.split("\n");
 				const l = lines[hit.line] ?? "";
-				const r = doneReplacement(hit, l);
+				const r = replacement(hit, l);
 				if (!r) return data;
 				lines[hit.line] = l.slice(0, r.from) + r.insert + l.slice(r.to);
 				changed = true;
 				return lines.join("\n");
 			});
 		} catch {
-			new Notice("Could not mark done");
+			new Notice(failText);
 			return;
 		}
 		if (!changed) new Notice("Line changed, rescanning");
 		await this.updateIndexEntry(path, file.stat.mtime);
 	}
 
-	private markDoneInEditor(editor: Editor, path: string, hit: Hit) {
+	private applyEditInEditor(editor: Editor, path: string, hit: Hit, replacement: EditFn) {
 		const lineText = hit.line < editor.lineCount() ? editor.getLine(hit.line) : "";
-		const r = doneReplacement(hit, lineText);
+		const r = replacement(hit, lineText);
 		if (r) {
 			editor.replaceRange(r.insert, { line: hit.line, ch: r.from }, { line: hit.line, ch: r.to });
 			if (path === this.currentPath) this.scheduleNoteScan(editor);

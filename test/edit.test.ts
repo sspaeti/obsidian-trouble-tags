@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { doneReplacement } from "../src/edit.ts";
+import { doneReplacement, undoneReplacement } from "../src/edit.ts";
 import type { Hit } from "../src/scanner.ts";
 
 const kw = (from: number, to: number, label = "TODO"): Hit => ({
@@ -38,4 +38,32 @@ test("out-of-range offsets on a shorter line return null", () => {
   assert.equal(doneReplacement(kw(10, 14), "TODO"), null);
   const hit: Hit = { line: 0, kind: "task", label: "task", text: "x", done: false, from: 8, to: 11 };
   assert.equal(doneReplacement(hit, "- [ ]"), null);
+});
+
+const done = (h: Hit): Hit => ({ ...h, done: true });
+test("undone keyword unwraps strikethrough, widening by 2", () => {
+  assert.deepEqual(undoneReplacement(done(kw(2, 6)), "~~TODO~~ x"), { from: 0, to: 8, insert: "TODO" });
+});
+test("undone hashtag keyword keeps the #", () => {
+  assert.deepEqual(undoneReplacement(done(kw(2, 7)), "~~#TODO~~"), { from: 0, to: 9, insert: "#TODO" });
+});
+test("undone on a not-done keyword hit returns null", () => {
+  assert.equal(undoneReplacement(kw(2, 6), "~~TODO~~ x"), null);
+});
+test("undone keyword whose line changed returns null", () => {
+  assert.equal(undoneReplacement(done(kw(2, 6)), "~~DONE~~ x"), null);
+  assert.equal(undoneReplacement(done(kw(2, 6)), "xxTODOxx x"), null);
+});
+test("undone task [x] becomes [ ]", () => {
+  const hit: Hit = { line: 0, kind: "task", label: "task", text: "a", done: true, from: 2, to: 5 };
+  assert.deepEqual(undoneReplacement(hit, "- [x] a"), { from: 2, to: 5, insert: "[ ]" });
+  assert.deepEqual(undoneReplacement(hit, "- [-] a"), { from: 2, to: 5, insert: "[ ]" });
+});
+test("undone task already open returns null", () => {
+  const hit: Hit = { line: 0, kind: "task", label: "task", text: "a", done: true, from: 2, to: 5 };
+  assert.equal(undoneReplacement(hit, "- [ ] a"), null);
+});
+test("undone callout returns null", () => {
+  const hit: Hit = { line: 0, kind: "callout", label: "?", text: "q", done: true, from: 2, to: 3 };
+  assert.equal(undoneReplacement(hit, "- ? q"), null);
 });

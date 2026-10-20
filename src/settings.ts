@@ -6,6 +6,7 @@ import { parseCalloutChars, parseKeywords } from "./parse";
 export interface TroubleTagsSettings extends MatchSettings {
 	showDone: boolean;
 	statusBar: boolean;
+	icon: string;
 	excludedFolders: string[];
 	scope: "note" | "vault";
 	filters: { keyword: boolean; callout: boolean; task: boolean };
@@ -17,10 +18,21 @@ export const DEFAULT_SETTINGS: TroubleTagsSettings = {
 	calloutChars: ["&", "?", "!", "~", "@", "$", "%", "="],
 	showDone: false,
 	statusBar: false,
+	icon: "list-todo",
 	excludedFolders: [],
 	scope: "note",
 	filters: { keyword: true, callout: true, task: true },
 };
+
+const ICON_OPTIONS: Array<[string, string]> = [
+	["list-todo", "List todo"],
+	["list-checks", "List checks"],
+	["alert-triangle", "Alert triangle"],
+	["traffic-cone", "Traffic cone"],
+	["siren", "Siren"],
+	["flag", "Flag"],
+	["radar", "Radar"],
+];
 
 export class TroubleTagsSettingTab extends PluginSettingTab {
 	plugin: TroubleTagsPlugin;
@@ -113,6 +125,18 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 					await plugin.saveSettings();
 				})
 			);
+
+		new Setting(containerEl)
+			.setName("Icon")
+			.setDesc("Icon of the ribbon button and the panel tab.")
+			.addDropdown((dd) => {
+				for (const [value, label] of ICON_OPTIONS) dd.addOption(value, label);
+				dd.setValue(plugin.settings.icon).onChange(async (value) => {
+					plugin.settings.icon = value;
+					await plugin.saveSettings();
+					plugin.applyIcon();
+				});
+			});
 
 		new Setting(containerEl).setName("Vault index").setHeading();
 
