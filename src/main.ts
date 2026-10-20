@@ -40,10 +40,17 @@ export default class TroubleTagsPlugin extends Plugin {
 		});
 	}
 
-	applyIcon() {
+	async applyIcon(): Promise<void> {
 		if (this.ribbonEl) setIcon(this.ribbonEl, this.settings.icon);
 		this.applyStatusBar();
-		// Open panel tabs pick up the new icon on their next open.
+		// Re-create open panel leaves so the tab header re-reads getIcon().
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
+			try {
+				await leaf.setViewState({ type: VIEW_TYPE, active: false });
+			} catch {
+				// The next open picks the icon up anyway.
+			}
+		}
 	}
 
 	/** Creates or removes the status bar item to match the setting. No-op on mobile. */

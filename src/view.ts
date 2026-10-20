@@ -269,7 +269,7 @@ export class TroubleView extends ItemView {
 		for (const g of groups) {
 			if (rows >= this.rowLimit) break;
 			const name = names.get(g.path) ?? g.path;
-			const header = container.createDiv({ cls: "trouble-tags-file", attr: { "aria-label": g.path, title: g.path } });
+			const header = container.createDiv({ cls: "trouble-tags-file", attr: { title: g.path } });
 			header.toggleClass("is-collapsed", this.collapsed.has(g.path));
 			header.createSpan({ cls: "trouble-tags-file-name", text: name });
 			header.createSpan({ cls: "trouble-tags-file-count", text: String(g.hits.length) });
@@ -277,6 +277,7 @@ export class TroubleView extends ItemView {
 				if (this.collapsed.has(g.path)) this.collapsed.delete(g.path);
 				else this.collapsed.add(g.path);
 				header.toggleClass("is-collapsed", this.collapsed.has(g.path));
+				this.updateFoldBtn();
 			});
 			const rowsEl = container.createDiv({ cls: "trouble-tags-file-rows" });
 			for (const hit of g.hits) {
@@ -353,15 +354,26 @@ export class TroubleView extends ItemView {
 		});
 	}
 
-	private renderFold(parent: HTMLElement) {
-		const expandAll = this.collapsed.size > 0;
-		const btn = parent.createEl("button", {
-			cls: "trouble-tags-fold",
-			attr: { "aria-label": expandAll ? "Expand all" : "Collapse all" },
-		});
+	private foldBtn: HTMLElement | null = null;
+
+	private anyCollapsed(): boolean {
+		return this.renderedPaths.some((p) => this.collapsed.has(p));
+	}
+
+	private updateFoldBtn() {
+		const btn = this.foldBtn;
+		if (!btn) return;
+		const expandAll = this.anyCollapsed();
+		btn.setAttribute("aria-label", expandAll ? "Expand all" : "Collapse all");
 		setIcon(btn, expandAll ? "chevrons-up-down" : "chevrons-down-up");
+	}
+
+	private renderFold(parent: HTMLElement) {
+		const btn = parent.createEl("button", { cls: "trouble-tags-fold" });
+		this.foldBtn = btn;
+		this.updateFoldBtn();
 		btn.addEventListener("click", () => {
-			if (expandAll) this.collapsed.clear();
+			if (this.anyCollapsed()) this.collapsed.clear();
 			else for (const p of this.renderedPaths) this.collapsed.add(p);
 			this.renderVault();
 		});

@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type TroubleTagsPlugin from "./main";
 import type { KeywordMode, MatchSettings } from "./scanner";
 import { parseCalloutChars, parseKeywords } from "./parse";
@@ -148,17 +148,20 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 				})
 			);
 
-		new Setting(containerEl)
+		const iconSetting = new Setting(containerEl)
 			.setName("Icon")
-			.setDesc("Icon of the ribbon button and the panel tab.")
-			.addDropdown((dd) => {
-				for (const [value, label] of ICON_OPTIONS) dd.addOption(value, label);
-				dd.setValue(plugin.settings.icon).onChange(async (value) => {
-					plugin.settings.icon = value;
-					await plugin.saveSettings();
-					plugin.applyIcon();
-				});
+			.setDesc("Icon of the ribbon button and the panel tab.");
+		const preview = iconSetting.controlEl.createSpan({ cls: "trouble-tags-icon-preview" });
+		setIcon(preview, plugin.settings.icon);
+		iconSetting.addDropdown((dd) => {
+			for (const [value, label] of ICON_OPTIONS) dd.addOption(value, label);
+			dd.setValue(plugin.settings.icon).onChange(async (value) => {
+				plugin.settings.icon = value;
+				await plugin.saveSettings();
+				setIcon(preview, value);
+				await plugin.applyIcon();
 			});
+		});
 
 		new Setting(containerEl).setName("Vault index").setHeading();
 

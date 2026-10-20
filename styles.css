@@ -316,3 +316,14 @@
 	width: 14px;
 	height: 14px;
 }
+
+.trouble-tags-icon-preview {
+	display: inline-flex;
+	align-items: center;
+	margin-right: var(--size-4-2);
+}
+
+.trouble-tags-icon-preview svg {
+	width: var(--icon-l);
+	height: var(--icon-l);
+}
