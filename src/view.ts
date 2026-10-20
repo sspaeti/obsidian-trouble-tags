@@ -55,6 +55,7 @@ export class TroubleView extends ItemView {
 	onClose() {
 		this.clearNoteScanTimer();
 		this.progressEl = null;
+		this.plugin.updateStatus(null);
 		return Promise.resolve();
 	}
 

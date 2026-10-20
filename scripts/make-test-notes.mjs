@@ -82,7 +82,7 @@ write("fixtures/all-forms.md", allForms);
 write("fixtures/strike.md", strike);
 write("templates/excluded.md", "TODO: should not appear when templates is excluded\n");
 
-// Equivalent copies of fixtures from earlier tasks.
+// The three notes the earlier manual checks used.
 write("fixtures/task5-smoke.md", `TODO: first
 #FIXME second
 - ? question
@@ -96,7 +96,6 @@ TK placeholder
 `);
 write("fixtures/vault-a.md", "~~TODO~~: alpha\n- [ ] beta\n");
 write("fixtures/vault-b.md", "NOTE: gamma\nFIXME: delta\n");
-const legacy = created - 3;
 
 // Deterministic pseudo-random so reruns produce the same vault.
 let seed = 42;
@@ -130,4 +129,4 @@ for (let n = 1; n <= 300; n++) {
 	generated++;
 }
 
-console.log(`wrote ${generated + 3} new fixture files (3 named + ${generated} generated) plus ${legacy} legacy copies, ${created} total in ${VAULT}`);
+console.log(`wrote ${created} files under ${VAULT}`);

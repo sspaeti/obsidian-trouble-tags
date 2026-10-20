@@ -17,7 +17,7 @@ export default class TroubleTagsPlugin extends Plugin {
 	private saveTimer: number | null = null;
 	private ribbonEl: HTMLElement | null = null;
 	private statusEl: HTMLElement | null = null;
-	private openCount = 0;
+	private openCount: number | null = null;
 
 	async loadSettings() {
 		const data = ((await this.loadData()) ?? {}) as Partial<TroubleTagsSettings>;
@@ -60,11 +60,12 @@ export default class TroubleTagsPlugin extends Plugin {
 		}
 		this.statusEl.empty();
 		setIcon(this.statusEl.createSpan({ cls: "trouble-tags-status-icon" }), this.settings.icon);
-		this.statusEl.createSpan({ cls: "trouble-tags-status-count", text: String(this.openCount) });
+		this.statusEl.createSpan({ cls: "trouble-tags-status-count", text: this.openCount === null ? "–" : String(this.openCount) });
 	}
 
-	updateStatus(openCount: number) {
-		if (openCount === this.openCount && this.statusEl) return;
+	/** Open item count of the current note; null while the panel is closed (shown as an en dash). */
+	updateStatus(openCount: number | null) {
+		if (openCount === this.openCount) return;
 		this.openCount = openCount;
 		if (this.statusEl) this.applyStatusBar();
 	}

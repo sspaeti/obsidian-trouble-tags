@@ -34,10 +34,10 @@ A sidebar panel, inspired by [trouble.nvim](https://github.com/folke/trouble.nvi
 | Keyword match | Hashtag and bare | Also "Hashtag only" and "Bare only". |
 | Callout characters | `& ? ! ~ @ $ % =` | Space separated characters. "Import from List Callouts" copies them from the List Callouts plugin. |
 | Show done items | Off | Include completed tasks and struck-through keywords. |
-| Status bar count | Off | Shows the number of open items of the current note in the status bar. Click it to toggle the panel. Not available on mobile. |
+| Status bar count | Off | Shows the number of open items of the current note in the status bar. Click it to toggle the panel. Shows – while the panel is closed. Not available on mobile. |
 | Icon | List todo | Icon of the ribbon button and the panel tab. |
 | Excluded folders | Empty | One folder path per line, skipped when building the vault index. |
-| Rebuild index | | Discards the cached index. |
+| Rebuild index | | Discards the index and rebuilds it right away if the panel shows the whole vault; otherwise the Build index button appears. |
 | Clear index | | Deletes the cached index. |
 
 Changing keywords, match mode, callout characters or excluded folders discards the vault index. The panel then offers "Build index" again; it never rebuilds by itself.

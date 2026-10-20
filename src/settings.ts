@@ -39,10 +39,22 @@ const ICON_OPTIONS: Array<[string, string]> = [
 export class TroubleTagsSettingTab extends PluginSettingTab {
 	plugin: TroubleTagsPlugin;
 	private excludeTimer: number | null = null;
+	private excludeApply: (() => void) | null = null;
 
 	constructor(app: App, plugin: TroubleTagsPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	hide(): void {
+		// Apply a pending excluded-folders edit now so nothing fires later and no edit is lost.
+		if (this.excludeApply) {
+			if (this.excludeTimer !== null) window.clearTimeout(this.excludeTimer);
+			this.excludeTimer = null;
+			const apply = this.excludeApply;
+			this.excludeApply = null;
+			apply();
+		}
 	}
 
 	display(): void {
@@ -153,14 +165,19 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 					.onChange((value) => {
 						// Applying invalidates the index, so wait until typing pauses.
 						if (this.excludeTimer !== null) window.clearTimeout(this.excludeTimer);
-						this.excludeTimer = window.setTimeout(() => {
-							this.excludeTimer = null;
+						this.excludeApply = () => {
 							plugin.settings.excludedFolders = value
 								.split("\n")
 								.map((l) => l.trim().replace(/\/+$/, ""))
 								.filter((l) => l.length > 0);
 							void plugin.saveSettings();
 							plugin.onMatchSettingsChanged();
+						};
+						this.excludeTimer = window.setTimeout(() => {
+							this.excludeTimer = null;
+							const apply = this.excludeApply;
+							this.excludeApply = null;
+							apply?.();
 						}, EXCLUDE_APPLY_DELAY);
 					})
 			);
