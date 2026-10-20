@@ -2,3 +2,5 @@ node_modules/
 *.map
 .DS_Store
 .superpowers/
+data.json
+index.json
