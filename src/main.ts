@@ -121,7 +121,10 @@ export default class TroubleTagsPlugin extends Plugin {
 	scanConfig!: ScanConfig;
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()) as TroubleTagsSettings;
+		const data = ((await this.loadData()) ?? {}) as Partial<TroubleTagsSettings>;
+		this.settings = Object.assign(structuredClone(DEFAULT_SETTINGS), data, {
+			filters: Object.assign({}, DEFAULT_SETTINGS.filters, data.filters),
+		});
 		this.scanConfig = buildScanConfig(this.settings);
 	}
 

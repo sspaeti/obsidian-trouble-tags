@@ -160,9 +160,9 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 			const chars: string[] = [];
 			for (const c of data.callouts) {
 				const ch = (c as { char?: unknown } | null)?.char;
-				if (typeof ch === "string" && ch.length > 0 && chars.indexOf(ch) === -1) chars.push(ch);
+				if (typeof ch === "string" && Array.from(ch).length === 1 && chars.indexOf(ch) === -1) chars.push(ch);
 			}
-			return chars;
+			return chars.length > 0 ? chars : null;
 		} catch {
 			return null;
 		}
