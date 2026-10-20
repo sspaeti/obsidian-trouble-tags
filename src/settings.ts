@@ -134,7 +134,7 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Rebuild index")
-			.setDesc("Discard the cached index and build it again when the panel shows the whole vault.")
+			.setDesc("Discard the cached index. Builds it again right away only if the panel shows the whole vault; otherwise the panel offers a Build index button next time.")
 			.addButton((btn) =>
 				btn.setButtonText("Rebuild index").onClick(async () => {
 					await plugin.runStoreOp(() => plugin.indexStore.invalidate());

@@ -45,9 +45,9 @@ export class TroubleView extends ItemView {
 	}
 
 	async onOpen() {
+		// Renders the loaded index as-is. A layout restore must not touch the vault;
+		// the open command (a user action) calls refreshVault() instead.
 		await this.scanNote(this.app.workspace.getActiveFile());
-		// Refresh is a no-op without an index; it never builds one.
-		if (this.panelScope === "vault") void this.refreshVault();
 	}
 
 	onClose() {
@@ -65,6 +65,8 @@ export class TroubleView extends ItemView {
 
 	scheduleNoteScan(editor?: Editor) {
 		this.clearNoteScanTimer();
+		// Vault scope does not show the note; setScope("note") rescans it.
+		if (this.panelScope === "vault") return;
 		const path = this.currentPath;
 		if (!path) return;
 		this.noteScanTimer = window.setTimeout(() => {
@@ -110,6 +112,7 @@ export class TroubleView extends ItemView {
 		if (scope === this.panelScope) return;
 		this.plugin.settings.scope = scope;
 		void this.plugin.saveSettings();
+		this.rowLimit = VAULT_ROW_STEP;
 		if (scope === "note") {
 			this.rescanPath(this.currentPath);
 			return;
@@ -119,7 +122,9 @@ export class TroubleView extends ItemView {
 		await this.refreshVault();
 	}
 
-	private async refreshVault() {
+	/** Metadata pass over the vault; no-op without an index or outside vault scope. */
+	async refreshVault() {
+		if (this.panelScope !== "vault") return;
 		const store = this.plugin.indexStore;
 		if (store.files === null) return;
 		await this.plugin.runStoreOp(() => store.refresh());
@@ -130,6 +135,7 @@ export class TroubleView extends ItemView {
 		const plugin = this.plugin;
 		if (plugin.indexBuilding) return;
 		plugin.indexBuilding = true;
+		this.rowLimit = VAULT_ROW_STEP;
 		this.progressText = "Indexing 0/0";
 		this.render();
 		let lastPaint = 0;
@@ -202,6 +208,11 @@ export class TroubleView extends ItemView {
 				if (hits.length > 0) groups.push({ path, mtime: entry.mtime, hits });
 			}
 			groups.sort((a, b) => b.mtime - a.mtime || a.path.localeCompare(b.path));
+			for (const p of this.collapsed) if (!(p in files)) this.collapsed.delete(p);
+		} else {
+			// Cleared or invalidated index: start the next build from a fresh view state.
+			this.rowLimit = VAULT_ROW_STEP;
+			this.collapsed.clear();
 		}
 		const { filters, showDone } = plugin.settings;
 		const key = "vault\n" + JSON.stringify([
@@ -235,10 +246,10 @@ export class TroubleView extends ItemView {
 		let rows = 0;
 		for (const g of groups) {
 			if (rows >= this.rowLimit) break;
-			const name = g.path.split("/").pop() ?? g.path;
+			const name = (g.path.split("/").pop() ?? g.path).replace(/\.md$/, "");
 			const header = container.createDiv({ cls: "trouble-tags-file", attr: { "aria-label": g.path } });
 			header.toggleClass("is-collapsed", this.collapsed.has(g.path));
-			header.createSpan({ cls: "trouble-tags-file-name", text: name.replace(/\.md$/, "") });
+			header.createSpan({ cls: "trouble-tags-file-name", text: name });
 			header.createSpan({ cls: "trouble-tags-file-count", text: String(g.hits.length) });
 			header.addEventListener("click", () => {
 				if (this.collapsed.has(g.path)) this.collapsed.delete(g.path);
@@ -340,15 +351,20 @@ export class TroubleView extends ItemView {
 			return;
 		}
 		let changed = false;
-		await this.app.vault.process(file, (data) => {
-			const lines = data.split("\n");
-			const l = lines[hit.line] ?? "";
-			const r = doneReplacement(hit, l);
-			if (!r) return data;
-			lines[hit.line] = l.slice(0, r.from) + r.insert + l.slice(r.to);
-			changed = true;
-			return lines.join("\n");
-		});
+		try {
+			await this.app.vault.process(file, (data) => {
+				const lines = data.split("\n");
+				const l = lines[hit.line] ?? "";
+				const r = doneReplacement(hit, l);
+				if (!r) return data;
+				lines[hit.line] = l.slice(0, r.from) + r.insert + l.slice(r.to);
+				changed = true;
+				return lines.join("\n");
+			});
+		} catch {
+			new Notice("Could not mark done");
+			return;
+		}
 		if (!changed) new Notice("Line changed, rescanning");
 		await this.updateIndexEntry(path, file.stat.mtime);
 	}

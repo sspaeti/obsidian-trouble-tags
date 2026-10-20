@@ -118,7 +118,12 @@ export default class TroubleTagsPlugin extends Plugin {
 				if (files === null) return;
 				const had = oldPath in files;
 				this.indexStore.renameFile(oldPath, file.path);
-				if (had) this.onIndexChanged();
+				if (had) {
+					this.onIndexChanged();
+				} else if (file instanceof TFile && file.extension === "md" && !this.indexStore.isExcluded(file.path)) {
+					// Moved in from an excluded folder (or renamed to .md): index it like a modify.
+					void this.onIndexModify(file);
+				}
 			})
 		);
 	}
@@ -182,5 +187,7 @@ export default class TroubleTagsPlugin extends Plugin {
 		if (!leaf) return;
 		await leaf.setViewState({ type: VIEW_TYPE, active: true });
 		void this.app.workspace.revealLeaf(leaf);
+		// Opened by the user: catch up on changes made while the panel was closed.
+		void this.getView()?.refreshVault();
 	}
 }
