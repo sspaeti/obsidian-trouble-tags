@@ -1,5 +1,6 @@
-import { Notice, Platform, Plugin, TAbstractFile, TFile, normalizePath, setIcon } from "obsidian";
-import { buildScanConfig, configHash, ScanConfig } from "./scanner";
+import { Editor, Notice, Platform, Plugin, TAbstractFile, TFile, normalizePath, setIcon } from "obsidian";
+import { Hit, buildScanConfig, configHash, ScanConfig, scanText } from "./scanner";
+import { Direction, neighbourHit } from "./navigate";
 import { DEFAULT_SETTINGS, TroubleTagsSettings, TroubleTagsSettingTab } from "./settings";
 import { IndexStore } from "./index-store";
 import { createIndexIO } from "./index-io";
@@ -130,6 +131,21 @@ export default class TroubleTagsPlugin extends Plugin {
 			name: "Toggle panel",
 			callback: () => { void this.toggleView(); },
 		});
+		this.addCommand({
+			id: "toggle-scope",
+			name: "Toggle scope (current note / whole vault)",
+			callback: () => { void this.toggleScope(); },
+		});
+		this.addCommand({
+			id: "next-item",
+			name: "Jump to next item in note",
+			editorCallback: (editor) => this.jumpToNeighbour(editor, 1),
+		});
+		this.addCommand({
+			id: "previous-item",
+			name: "Jump to previous item in note",
+			editorCallback: (editor) => this.jumpToNeighbour(editor, -1),
+		});
 
 		this.registerEvent(
 			this.app.workspace.on("file-open", (file) => {
@@ -232,6 +248,33 @@ export default class TroubleTagsPlugin extends Plugin {
 			return leaves[0].view;
 		}
 		return null;
+	}
+
+	/** Panel filters applied to a hit: source chips and "Show done". */
+	isVisibleHit(hit: Hit): boolean {
+		const { filters, showDone } = this.settings;
+		return filters[hit.kind] && (showDone || !hit.done);
+	}
+
+	/** Move the cursor to the next or previous visible hit in the editor, wrapping around. */
+	jumpToNeighbour(editor: Editor, dir: Direction) {
+		const hits = scanText(editor.getValue(), this.scanConfig).filter((h) => this.isVisibleHit(h));
+		const hit = neighbourHit(hits, editor.getCursor(), dir);
+		if (!hit) {
+			new Notice("Trouble Tags: nothing found in this note");
+			return;
+		}
+		const pos = { line: hit.line, ch: hit.from };
+		editor.setCursor(pos);
+		editor.scrollIntoView({ from: pos, to: pos }, true);
+	}
+
+	/** Flip the panel between note and vault scope, opening it first if needed. */
+	async toggleScope() {
+		if (!this.getView()) await this.toggleView();
+		const view = this.getView();
+		if (!view) return;
+		await view.setScope(view.panelScope === "vault" ? "note" : "vault");
 	}
 
 	async toggleView() {

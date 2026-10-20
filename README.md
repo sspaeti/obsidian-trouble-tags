@@ -30,7 +30,19 @@ A sidebar panel, inspired by [todo-comments.nvim](https://github.com/folke/todo-
 - **Refresh index:** the refresh button next to the sort dropdown in the whole-vault view rescans notes that changed since the last pass, for example after Obsidian restored the panel on startup.
 - **Collapse all / Expand all:** the button next to the sort dropdown in the whole-vault view folds every file group, or unfolds them again.
 - **Click a row** to jump to its line. This also works when the note is in reading mode.
+- **Jump with the keyboard:** the commands "Jump to next item in note" and "Jump to previous item in note" move the cursor to the next or previous item in the open note, wrapping around at the end. They respect the filter chips and "Show done". A third command, "Toggle scope (current note / whole vault)", flips the panel and opens it if needed. None of them have a default hotkey; bind them under Settings, Hotkeys.
 - **Mark done:** the check button on a row turns `TODO` into `~~TODO~~` or `[ ]` into `[x]`. On a done row (with "Show done" on) an undo button restores it, including keywords inside a wider `~~struck span~~`. Callouts have no done state. If the line changed since the last scan, a notice appears and nothing is edited.
+
+### Vim motions
+
+With the [Vimrc Support](https://github.com/esm7/obsidian-vimrc-support) plugin you can bind the commands to motions in `.obsidian.vimrc`, for example `]t` and `[t`. Mapping `}` and `{` works too but replaces the paragraph motions.
+
+```vim
+exmap next_item obcommand trouble-tags:next-item
+exmap prev_item obcommand trouble-tags:previous-item
+nmap ]t :next_item<CR>
+nmap [t :prev_item<CR>
+```
 
 ## Settings
 

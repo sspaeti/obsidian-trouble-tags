@@ -193,8 +193,7 @@ export class TroubleView extends ItemView {
 	}
 
 	private isVisible(hit: Hit): boolean {
-		const { filters, showDone } = this.plugin.settings;
-		return filters[hit.kind] && (showDone || !hit.done);
+		return this.plugin.isVisibleHit(hit);
 	}
 
 	render() {
