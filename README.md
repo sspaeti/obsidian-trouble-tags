@@ -5,7 +5,7 @@ A sidebar panel, inspired by [todo-comments.nvim](https://github.com/folke/todo-
 ![plugin preview](images/trouble-plugin.png)
 
 > [!NOTE]
-> **Why "Trouble"?** The name comes from [trouble.nvim](https://github.com/folke/trouble.nvim). When this plugin started, I assumed the TODO list lived there. It is actually [todo-comments.nvim](https://github.com/folke/todo-comments.nvim) that finds the keywords and feeds them into trouble.nvim. The credit moved, the name stayed.
+> **Why the name "Trouble"?** It comes originally from [trouble.nvim](https://github.com/folke/trouble.nvim) as I thought the TODO capabilities in Neovimcome fromthere. But it is actually [todo-comments.nvim](https://github.com/folke/todo-comments.nvim) that finds the keywords and feeds them into trouble.nvim. I just kept the name as it's kind of true to the tags/flags/keywords still.
 
 ## What it finds
 
