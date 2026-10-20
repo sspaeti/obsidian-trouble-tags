@@ -5,6 +5,7 @@ import { doneReplacement, undoneReplacement } from "./edit";
 import type { Replacement } from "./edit";
 import { renderRow } from "./rows";
 import { findMarkdownView } from "./workspace";
+import { NoteSort, VaultSort, displayNames, sortFiles, sortHits } from "./sort";
 
 export const VIEW_TYPE = "trouble-tags-view";
 
@@ -32,6 +33,7 @@ export class TroubleView extends ItemView {
 	private rowLimit = VAULT_ROW_STEP;
 	private progressText = "Indexing 0/0";
 	private progressEl: HTMLElement | null = null;
+	private renderedPaths: string[] = [];
 
 	constructor(leaf: WorkspaceLeaf, plugin: TroubleTagsPlugin) {
 		super(leaf);
@@ -54,6 +56,8 @@ export class TroubleView extends ItemView {
 
 	onClose() {
 		this.clearNoteScanTimer();
+		// A scan still reading from disk must not push a status count after close.
+		this.scanSeq++;
 		this.progressEl = null;
 		this.plugin.updateStatus(null);
 		return Promise.resolve();
@@ -179,9 +183,9 @@ export class TroubleView extends ItemView {
 			this.renderVault();
 			return;
 		}
-		const visible = this.hits.filter((h) => this.isVisible(h));
-		const { filters, showDone } = this.plugin.settings;
-		const key = "note\n" + JSON.stringify(visible) + "\n" + this.currentPath + "\n" + JSON.stringify({ filters, showDone });
+		const { filters, showDone, noteSort, keywords, calloutChars } = this.plugin.settings;
+		const visible = sortHits(this.hits.filter((h) => this.isVisible(h)), noteSort, keywords, calloutChars);
+		const key = "note\n" + JSON.stringify(visible) + "\n" + this.currentPath + "\n" + JSON.stringify({ filters, showDone, noteSort });
 		if (key === this.lastRenderKey) return;
 		this.lastRenderKey = key;
 
@@ -200,6 +204,7 @@ export class TroubleView extends ItemView {
 		for (const hit of visible) {
 			renderRow(container, hit, {
 				location: ":" + (hit.line + 1),
+				title: path,
 				keywords: this.plugin.settings.keywords,
 				onJump: () => this.jumpTo(path, hit.line),
 				onDone: () => { void this.markDone(path, hit); },
@@ -212,14 +217,17 @@ export class TroubleView extends ItemView {
 		if (this.panelScope !== "vault") return;
 		const plugin = this.plugin;
 		const files = plugin.indexStore.files;
-		const groups: Array<{ path: string; mtime: number; hits: Hit[] }> = [];
+		let groups: Array<{ path: string; mtime: number; ctime: number; hits: Hit[] }> = [];
+		const { vaultSort } = plugin.settings;
 		if (files !== null) {
 			for (const path in files) {
 				const entry = files[path];
 				const hits = entry.hits.filter((h) => this.isVisible(h));
-				if (hits.length > 0) groups.push({ path, mtime: entry.mtime, hits });
+				if (hits.length === 0) continue;
+				const ctime = vaultSort === "created" ? (this.app.vault.getFileByPath(path)?.stat.ctime ?? 0) : 0;
+				groups.push({ path, mtime: entry.mtime, ctime, hits });
 			}
-			groups.sort((a, b) => b.mtime - a.mtime || a.path.localeCompare(b.path));
+			groups = sortFiles(groups, vaultSort);
 			for (const p of this.collapsed) if (!(p in files)) this.collapsed.delete(p);
 		} else {
 			// Cleared or invalidated index: start the next build from a fresh view state.
@@ -229,11 +237,12 @@ export class TroubleView extends ItemView {
 		const { filters, showDone } = plugin.settings;
 		const key = "vault\n" + JSON.stringify([
 			files === null, plugin.indexBuilding, groups.map((g) => [g.path, g.hits]),
-			filters, showDone, Array.from(this.collapsed).sort(), this.rowLimit,
+			filters, showDone, Array.from(this.collapsed).sort(), this.rowLimit, vaultSort,
 		]);
 		if (key === this.lastRenderKey) return;
 		this.lastRenderKey = key;
 
+		this.renderedPaths = groups.map((g) => g.path);
 		const container = this.resetContainer();
 		this.progressEl = null;
 		if (files === null) {
@@ -255,11 +264,12 @@ export class TroubleView extends ItemView {
 			return;
 		}
 
+		const names = displayNames(this.renderedPaths);
 		let rows = 0;
 		for (const g of groups) {
 			if (rows >= this.rowLimit) break;
-			const name = (g.path.split("/").pop() ?? g.path).replace(/\.md$/, "");
-			const header = container.createDiv({ cls: "trouble-tags-file", attr: { "aria-label": g.path } });
+			const name = names.get(g.path) ?? g.path;
+			const header = container.createDiv({ cls: "trouble-tags-file", attr: { "aria-label": g.path, title: g.path } });
 			header.toggleClass("is-collapsed", this.collapsed.has(g.path));
 			header.createSpan({ cls: "trouble-tags-file-name", text: name });
 			header.createSpan({ cls: "trouble-tags-file-count", text: String(g.hits.length) });
@@ -274,6 +284,7 @@ export class TroubleView extends ItemView {
 				rows++;
 				renderRow(rowsEl, hit, {
 					location: `${name}:${hit.line + 1}`,
+					title: g.path,
 					keywords: plugin.settings.keywords,
 					onJump: () => this.jumpTo(g.path, hit.line),
 					onDone: () => { void this.markDone(g.path, hit); },
@@ -317,6 +328,42 @@ export class TroubleView extends ItemView {
 		}
 		this.renderChip(header, "Show done", settings.showDone, () => {
 			settings.showDone = !settings.showDone;
+		});
+
+		if (vault) {
+			this.renderSort(header, [["modified", "Modified"], ["created", "Created"], ["name", "Name"]],
+				settings.vaultSort, (v) => { settings.vaultSort = v as VaultSort; });
+			if (this.renderedPaths.length > 0) this.renderFold(header);
+		} else {
+			this.renderSort(header, [["line", "Line"], ["label", "Label"]],
+				settings.noteSort, (v) => { settings.noteSort = v as NoteSort; });
+		}
+	}
+
+	private renderSort(parent: HTMLElement, options: Array<[string, string]>, current: string, apply: (value: string) => void) {
+		const select = parent.createEl("select", { cls: ["trouble-tags-sort", "dropdown"], attr: { "aria-label": "Sort" } });
+		for (const [value, text] of options) {
+			const opt = select.createEl("option", { text, value });
+			opt.selected = value === current;
+		}
+		select.addEventListener("change", () => {
+			apply(select.value);
+			void this.plugin.saveSettings();
+			this.render();
+		});
+	}
+
+	private renderFold(parent: HTMLElement) {
+		const expandAll = this.collapsed.size > 0;
+		const btn = parent.createEl("button", {
+			cls: "trouble-tags-fold",
+			attr: { "aria-label": expandAll ? "Expand all" : "Collapse all" },
+		});
+		setIcon(btn, expandAll ? "chevrons-up-down" : "chevrons-down-up");
+		btn.addEventListener("click", () => {
+			if (expandAll) this.collapsed.clear();
+			else for (const p of this.renderedPaths) this.collapsed.add(p);
+			this.renderVault();
 		});
 	}
 

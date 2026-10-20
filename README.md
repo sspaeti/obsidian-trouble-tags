@@ -22,7 +22,9 @@ A sidebar panel, inspired by [trouble.nvim](https://github.com/folke/trouble.nvi
 - **Open the panel:** click the ribbon icon or run "Toggle Trouble Tags panel" from the command palette.
 - **Filter chips:** Keywords, Callouts and Tasks switch each source on or off. "Show done" includes finished items. The chips are remembered.
 - **Scope toggle:** the first button in the panel header switches between the current note and the whole vault. The choice is remembered.
-- **Whole vault:** press "Build index" once. After that the panel opens instantly and only rescans notes that changed. Results are grouped by file, newest first, and each file can be collapsed.
+- **Whole vault:** press "Build index" once. After that the panel opens instantly and only rescans notes that changed. Results are grouped by file and each file can be collapsed. Notes with the same name show their parent folder (`folder/note`); hover a file header or a row location to see the full path.
+- **Sort:** in the whole-vault view the sort dropdown orders files by Modified (newest first, the default), Created (newest first) or Name. In the note view it orders rows by Line (default) or Label (keywords in the order of your keyword setting, then callouts, then tasks). Both choices are remembered.
+- **Collapse all / Expand all:** the button next to the sort dropdown in the whole-vault view folds every file group, or unfolds them again.
 - **Click a row** to jump to its line. This also works when the note is in reading mode.
 - **Mark done:** the check button on a row turns `TODO` into `~~TODO~~` or `[ ]` into `[x]`. On a done row (with "Show done" on) an undo button restores it, including keywords inside a wider `~~struck span~~`. Callouts have no done state. If the line changed since the last scan, a notice appears and nothing is edited.
 
@@ -37,6 +39,8 @@ A sidebar panel, inspired by [trouble.nvim](https://github.com/folke/trouble.nvi
 | Status bar count | Off | Shows the number of open items of the current note in the status bar. Click it to toggle the panel. Shows – while the panel is closed. Not available on mobile. |
 | Icon | List todo | Icon of the ribbon button and the panel tab. |
 | Excluded folders | Empty | One folder path per line, skipped when building the vault index. |
+| Vault sort | Modified | Whole-vault file order: Modified, Created or Name. Set from the panel header. |
+| Note sort | Line | Row order of the note view: Line or Label. Set from the panel header. |
 | Rebuild index | | Discards the index and rebuilds it right away if the panel shows the whole vault; otherwise the Build index button appears. |
 | Clear index | | Deletes the cached index. |
 

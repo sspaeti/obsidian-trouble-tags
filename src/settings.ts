@@ -2,6 +2,7 @@ import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type TroubleTagsPlugin from "./main";
 import type { KeywordMode, MatchSettings } from "./scanner";
 import { parseCalloutChars, parseKeywords } from "./parse";
+import type { NoteSort, VaultSort } from "./sort";
 
 export interface TroubleTagsSettings extends MatchSettings {
 	showDone: boolean;
@@ -10,6 +11,9 @@ export interface TroubleTagsSettings extends MatchSettings {
 	excludedFolders: string[];
 	scope: "note" | "vault";
 	filters: { keyword: boolean; callout: boolean; task: boolean };
+	/** Set from the panel header, not the settings tab. */
+	vaultSort: VaultSort;
+	noteSort: NoteSort;
 }
 
 export const DEFAULT_SETTINGS: TroubleTagsSettings = {
@@ -22,6 +26,8 @@ export const DEFAULT_SETTINGS: TroubleTagsSettings = {
 	excludedFolders: [],
 	scope: "note",
 	filters: { keyword: true, callout: true, task: true },
+	vaultSort: "modified",
+	noteSort: "line",
 };
 
 const EXCLUDE_APPLY_DELAY = 800;

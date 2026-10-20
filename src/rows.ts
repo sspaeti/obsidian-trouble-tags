@@ -9,6 +9,8 @@ const CUSTOM_PALETTE_SIZE = 6;
 export interface RowOptions {
 	/** Text of the location span, e.g. ":12" (note scope) or "note.md:12" (vault scope). */
 	location: string;
+	/** Tooltip of the location span, the full path of the note. */
+	title?: string;
 	keywords: string[];
 	onJump: () => void;
 	onDone: () => void;
@@ -31,7 +33,7 @@ export function renderRow(container: HTMLElement, hit: Hit, opts: RowOptions) {
 	if (hit.secondary) {
 		row.createSpan({ cls: ["trouble-tags-label", "trouble-tags-label-callout"], text: hit.secondary });
 	}
-	row.createSpan({ cls: "trouble-tags-line", text: opts.location });
+	row.createSpan({ cls: "trouble-tags-line", text: opts.location, attr: opts.title ? { title: opts.title } : undefined });
 	row.createSpan({ cls: "trouble-tags-context", text: hit.text });
 
 	if (hit.kind !== "callout" && !hit.done) {

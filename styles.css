@@ -289,3 +289,30 @@
 	width: var(--icon-xs);
 	height: var(--icon-xs);
 }
+
+.trouble-tags-sort {
+	font-size: var(--font-ui-smaller);
+	height: auto;
+	padding: 2px 20px 2px 6px;
+}
+
+.trouble-tags-fold {
+	padding: 2px 6px;
+	height: auto;
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.trouble-tags-fold:hover {
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
+}
+
+.trouble-tags-fold svg {
+	width: 14px;
+	height: 14px;
+}
