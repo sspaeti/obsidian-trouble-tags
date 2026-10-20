@@ -1,7 +1,7 @@
 import { Editor, ItemView, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type TroubleTagsPlugin from "./main";
 import { Hit, HitKind, scanText } from "./scanner";
-import { doneReplacement, undoneReplacement } from "./edit";
+import { applyToText, doneReplacement, undoneReplacement } from "./edit";
 import type { Replacement } from "./edit";
 import { renderRow } from "./rows";
 import { findMarkdownView } from "./workspace";
@@ -34,6 +34,8 @@ export class TroubleView extends ItemView {
 	private progressText = "Indexing 0/0";
 	private progressEl: HTMLElement | null = null;
 	private renderedPaths: string[] = [];
+	private refreshing = false;
+	private refreshBtn: HTMLButtonElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: TroubleTagsPlugin) {
 		super(leaf);
@@ -52,6 +54,8 @@ export class TroubleView extends ItemView {
 		// Renders the loaded index as-is. A layout restore must not touch the vault;
 		// the open command (a user action) calls refreshVault() instead.
 		await this.scanNote(this.app.workspace.getActiveFile());
+		// scanNote only pushes the status count in vault scope.
+		if (this.panelScope === "vault") this.renderVault();
 	}
 
 	onClose() {
@@ -72,8 +76,7 @@ export class TroubleView extends ItemView {
 
 	scheduleNoteScan(editor?: Editor) {
 		this.clearNoteScanTimer();
-		// Vault scope does not show the note; setScope("note") rescans it.
-		if (this.panelScope === "vault") return;
+		// In vault scope this still runs to keep the status bar count fresh; scanNote skips the render.
 		const path = this.currentPath;
 		if (!path) return;
 		this.noteScanTimer = window.setTimeout(() => {
@@ -99,7 +102,7 @@ export class TroubleView extends ItemView {
 			this.currentPath = null;
 			this.hits = [];
 			this.pushStatus();
-			this.render();
+			if (this.panelScope === "note") this.render();
 			return;
 		}
 		this.currentPath = file.path;
@@ -108,7 +111,8 @@ export class TroubleView extends ItemView {
 		if (seq !== this.scanSeq) return;
 		this.hits = scanText(content, this.plugin.scanConfig);
 		this.pushStatus();
-		this.render();
+		// Vault scope does not show the note; setScope("note") rescans and renders it.
+		if (this.panelScope === "note") this.render();
 	}
 
 	/** Status bar count: visible, not done hits of the current note. */
@@ -121,6 +125,7 @@ export class TroubleView extends ItemView {
 		// Force a rebuild: keyword colours depend on settings, not only on hits.
 		this.lastRenderKey = null;
 		this.rescanPath(this.currentPath);
+		this.renderVault();
 	}
 
 	async setScope(scope: PanelScope) {
@@ -141,9 +146,23 @@ export class TroubleView extends ItemView {
 	async refreshVault() {
 		if (this.panelScope !== "vault") return;
 		const store = this.plugin.indexStore;
-		if (store.files === null) return;
-		await this.plugin.runStoreOp(() => store.refresh());
+		if (store.files === null || this.refreshing) return;
+		this.setRefreshing(true);
+		try {
+			await this.plugin.runStoreOp(() => store.refresh(this.plugin.shouldStop));
+		} finally {
+			this.setRefreshing(false);
+		}
 		this.renderVault();
+	}
+
+	private setRefreshing(on: boolean) {
+		this.refreshing = on;
+		this.updateRefreshBtn();
+	}
+
+	private updateRefreshBtn() {
+		if (this.refreshBtn) this.refreshBtn.disabled = this.refreshing || this.plugin.indexBuilding;
 	}
 
 	async buildIndex() {
@@ -163,9 +182,9 @@ export class TroubleView extends ItemView {
 					lastPaint = now;
 					this.progressText = `Indexing ${done}/${total}`;
 					if (this.progressEl?.isConnected) this.progressEl.setText(this.progressText);
-				});
+				}, plugin.shouldStop);
 				// Files touched during the build were marked dirty; pick them up now.
-				if (store.dirty.size > 0) await store.refresh();
+				if (store.files !== null && store.dirty.size > 0) await store.refresh(plugin.shouldStop);
 			});
 		} finally {
 			plugin.indexBuilding = false;
@@ -235,8 +254,9 @@ export class TroubleView extends ItemView {
 			this.collapsed.clear();
 		}
 		const { filters, showDone } = plugin.settings;
+		// The store revision stands in for the hits: it changes on every index mutation.
 		const key = "vault\n" + JSON.stringify([
-			files === null, plugin.indexBuilding, groups.map((g) => [g.path, g.hits]),
+			files === null, plugin.indexBuilding, plugin.indexStore.revision,
 			filters, showDone, Array.from(this.collapsed).sort(), this.rowLimit, vaultSort,
 		]);
 		if (key === this.lastRenderKey) return;
@@ -266,19 +286,26 @@ export class TroubleView extends ItemView {
 
 		const names = displayNames(this.renderedPaths);
 		let rows = 0;
+		let total = 0;
 		for (const g of groups) {
-			if (rows >= this.rowLimit) break;
+			const collapsed = this.collapsed.has(g.path);
+			if (!collapsed) total += g.hits.length;
+			if (rows >= this.rowLimit) continue;
 			const name = names.get(g.path) ?? g.path;
 			const header = container.createDiv({ cls: "trouble-tags-file", attr: { title: g.path } });
-			header.toggleClass("is-collapsed", this.collapsed.has(g.path));
+			header.toggleClass("is-collapsed", collapsed);
 			header.createSpan({ cls: "trouble-tags-file-name", text: name });
 			header.createSpan({ cls: "trouble-tags-file-count", text: String(g.hits.length) });
 			header.addEventListener("click", () => {
 				if (this.collapsed.has(g.path)) this.collapsed.delete(g.path);
 				else this.collapsed.add(g.path);
-				header.toggleClass("is-collapsed", this.collapsed.has(g.path));
-				this.updateFoldBtn();
+				// Collapsed groups have no rows in the DOM; re-render and keep the scroll position.
+				const top = this.contentEl.scrollTop;
+				this.renderVault();
+				this.contentEl.scrollTop = top;
 			});
+			// Rows of a collapsed group are not created and do not count toward the row limit.
+			if (collapsed) continue;
 			const rowsEl = container.createDiv({ cls: "trouble-tags-file-rows" });
 			for (const hit of g.hits) {
 				if (rows >= this.rowLimit) break;
@@ -293,7 +320,6 @@ export class TroubleView extends ItemView {
 				});
 			}
 		}
-		const total = groups.reduce((sum, g) => sum + g.hits.length, 0);
 		if (rows < total) {
 			const more = container.createDiv({ cls: "trouble-tags-more", text: "Show more" });
 			more.addEventListener("click", () => {
@@ -315,6 +341,7 @@ export class TroubleView extends ItemView {
 		const settings = this.plugin.settings;
 		const header = container.createDiv({ cls: "trouble-tags-header" });
 		const vault = this.panelScope === "vault";
+		this.refreshBtn = null;
 		const scopeBtn = header.createEl("button", {
 			cls: "trouble-tags-scope",
 			attr: { "aria-label": vault ? "Whole vault" : "Current note" },
@@ -334,6 +361,7 @@ export class TroubleView extends ItemView {
 		if (vault) {
 			this.renderSort(header, [["modified", "Modified"], ["created", "Created"], ["name", "Name"]],
 				settings.vaultSort, (v) => { settings.vaultSort = v as VaultSort; });
+			if (this.plugin.indexStore.files !== null) this.renderRefresh(header);
 			if (this.renderedPaths.length > 0) this.renderFold(header);
 		} else {
 			this.renderSort(header, [["line", "Line"], ["label", "Label"]],
@@ -366,6 +394,14 @@ export class TroubleView extends ItemView {
 		const expandAll = this.anyCollapsed();
 		btn.setAttribute("aria-label", expandAll ? "Expand all" : "Collapse all");
 		setIcon(btn, expandAll ? "chevrons-up-down" : "chevrons-down-up");
+	}
+
+	private renderRefresh(parent: HTMLElement) {
+		const btn = parent.createEl("button", { cls: "trouble-tags-refresh", attr: { "aria-label": "Refresh index" } });
+		setIcon(btn, "refresh-cw");
+		this.refreshBtn = btn;
+		this.updateRefreshBtn();
+		btn.addEventListener("click", () => { void this.refreshVault(); });
 	}
 
 	private renderFold(parent: HTMLElement) {
@@ -408,24 +444,21 @@ export class TroubleView extends ItemView {
 	}
 
 	markDone(path: string, hit: Hit) {
-		return this.applyEdit(path, hit, doneReplacement, "mark done", "Could not mark done");
+		return this.applyEdit(path, hit, doneReplacement, "Could not mark done");
 	}
 
 	markUndone(path: string, hit: Hit) {
-		return this.applyEdit(path, hit, undoneReplacement, "mark undone", "Could not mark undone");
+		return this.applyEdit(path, hit, undoneReplacement, "Could not mark undone");
 	}
 
-	private async applyEdit(path: string, hit: Hit, replacement: EditFn, action: string, failText: string) {
+	private async applyEdit(path: string, hit: Hit, replacement: EditFn, failText: string) {
 		const mv = findMarkdownView(this.app, path);
 		// A MarkdownView always has an editor, even in reading mode; only use it in source mode.
 		if (mv && mv.getMode() === "source") {
 			this.applyEditInEditor(mv.editor, path, hit, replacement);
 			return;
 		}
-		if (this.panelScope === "note") {
-			new Notice(`Open the note in editing mode to ${action}`);
-			return;
-		}
+		// Reading mode or note not open: edit the file on disk.
 		const file = this.app.vault.getFileByPath(path);
 		if (!file) {
 			new Notice("File not found");
@@ -434,19 +467,16 @@ export class TroubleView extends ItemView {
 		let changed = false;
 		try {
 			await this.app.vault.process(file, (data) => {
-				const lines = data.split("\n");
-				const l = lines[hit.line] ?? "";
-				const r = replacement(hit, l);
-				if (!r) return data;
-				lines[hit.line] = l.slice(0, r.from) + r.insert + l.slice(r.to);
-				changed = true;
-				return lines.join("\n");
+				const res = applyToText(data, hit, replacement);
+				changed = res.changed;
+				return res.text;
 			});
 		} catch {
 			new Notice(failText);
 			return;
 		}
 		if (!changed) new Notice("Line changed, rescanning");
+		if (path === this.currentPath) void this.scanNote(file);
 		await this.updateIndexEntry(path, file.stat.mtime);
 	}
 

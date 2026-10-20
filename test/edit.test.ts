@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { doneReplacement, undoneReplacement } from "../src/edit.ts";
+import { applyToText, doneReplacement, undoneReplacement } from "../src/edit.ts";
 import type { Hit } from "../src/scanner.ts";
 
 const kw = (from: number, to: number, label = "TODO"): Hit => ({
@@ -77,4 +77,21 @@ test("undone keyword flagged done but outside any strike span returns null", () 
 test("undone task [X] uppercase becomes [ ]", () => {
   const hit: Hit = { line: 0, kind: "task", label: "task", text: "a", done: true, from: 2, to: 5 };
   assert.deepEqual(undoneReplacement(hit, "- [X] a"), { from: 2, to: 5, insert: "[ ]" });
+});
+
+test("applyToText marks a keyword done on its line", () => {
+  const hit: Hit = { ...kw(0, 4), line: 1 };
+  assert.deepEqual(applyToText("a\nTODO: x\nb", hit, doneReplacement), { text: "a\n~~TODO~~: x\nb", changed: true });
+});
+test("applyToText keeps CRLF line endings", () => {
+  const hit: Hit = { ...kw(0, 4), line: 1 };
+  assert.deepEqual(applyToText("a\r\nTODO: x\r\nb", hit, doneReplacement), { text: "a\r\n~~TODO~~: x\r\nb", changed: true });
+});
+test("applyToText leaves text unchanged when the line is out of range", () => {
+  const hit: Hit = { ...kw(0, 4), line: 5 };
+  assert.deepEqual(applyToText("TODO: x", hit, doneReplacement), { text: "TODO: x", changed: false });
+});
+test("applyToText leaves text unchanged when the line changed", () => {
+  const hit: Hit = { ...kw(0, 4), line: 0 };
+  assert.deepEqual(applyToText("DONE: x\nTODO", hit, doneReplacement), { text: "DONE: x\nTODO", changed: false });
 });

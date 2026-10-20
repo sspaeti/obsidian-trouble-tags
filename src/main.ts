@@ -18,6 +18,13 @@ export default class TroubleTagsPlugin extends Plugin {
 	private ribbonEl: HTMLElement | null = null;
 	private statusEl: HTMLElement | null = null;
 	private openCount: number | null = null;
+	/** configHash of the match settings, recomputed only when they change. */
+	private matchHash = "";
+	/** Excluded folders the index was last configured with (JSON), to detect real changes. */
+	private excludedKey = "";
+	private unloaded = false;
+	/** Stop check for long index passes: true once the plugin is disabled. */
+	readonly shouldStop = (): boolean => this.unloaded;
 
 	async loadSettings() {
 		const data = ((await this.loadData()) ?? {}) as Partial<TroubleTagsSettings>;
@@ -25,6 +32,8 @@ export default class TroubleTagsPlugin extends Plugin {
 			filters: Object.assign({}, DEFAULT_SETTINGS.filters, data.filters),
 		});
 		this.scanConfig = buildScanConfig(this.settings);
+		this.matchHash = configHash(this.settings);
+		this.excludedKey = JSON.stringify(this.settings.excludedFolders);
 	}
 
 	async saveSettings() {
@@ -34,6 +43,11 @@ export default class TroubleTagsPlugin extends Plugin {
 	onMatchSettingsChanged() {
 		this.scanConfig = buildScanConfig(this.settings);
 		this.getView()?.onConfigChanged();
+		const hash = configHash(this.settings);
+		const excludedKey = JSON.stringify(this.settings.excludedFolders);
+		if (hash === this.matchHash && excludedKey === this.excludedKey) return;
+		this.matchHash = hash;
+		this.excludedKey = excludedKey;
 		// Back to the "Build index" state; never rebuilds on its own.
 		void this.runStoreOp(() => this.indexStore.invalidate()).then(() => {
 			if (this.settings.scope === "vault") this.getView()?.render();
@@ -99,7 +113,7 @@ export default class TroubleTagsPlugin extends Plugin {
 		const indexPath = normalizePath(`${this.manifest.dir}/index.json`);
 		this.indexStore = new IndexStore(createIndexIO(this.app, indexPath), () => ({
 			scan: this.scanConfig,
-			hash: configHash(this.settings),
+			hash: this.matchHash,
 			excludedFolders: this.settings.excludedFolders,
 		}));
 		// Reads the cached index only; never scans the vault.
@@ -113,7 +127,7 @@ export default class TroubleTagsPlugin extends Plugin {
 
 		this.addCommand({
 			id: "toggle-trouble-tags",
-			name: "Toggle Trouble Tags panel",
+			name: "Toggle panel",
 			callback: () => { void this.toggleView(); },
 		});
 
@@ -203,6 +217,8 @@ export default class TroubleTagsPlugin extends Plugin {
 	}
 
 	onunload() {
+		// A running build or refresh sees this and abandons its pass without saving.
+		this.unloaded = true;
 		if (this.saveTimer !== null) {
 			window.clearTimeout(this.saveTimer);
 			this.saveTimer = null;

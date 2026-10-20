@@ -197,6 +197,19 @@
 	opacity: 1;
 }
 
+/* Touch devices have no hover: always show the buttons so a tap never hits an invisible one. */
+.is-mobile .trouble-tags-done,
+.is-mobile .trouble-tags-undone {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.trouble-tags-done,
+	.trouble-tags-undone {
+		opacity: 1;
+	}
+}
+
 .trouble-tags-scope {
 	padding: 2px 6px;
 	height: auto;
@@ -296,7 +309,8 @@
 	padding: 2px 20px 2px 6px;
 }
 
-.trouble-tags-fold {
+.trouble-tags-fold,
+.trouble-tags-refresh {
 	padding: 2px 6px;
 	height: auto;
 	background-color: transparent;
@@ -307,12 +321,14 @@
 	cursor: pointer;
 }
 
-.trouble-tags-fold:hover {
+.trouble-tags-fold:hover,
+.trouble-tags-refresh:hover:not(:disabled) {
 	color: var(--text-normal);
 	background-color: var(--background-modifier-hover);
 }
 
-.trouble-tags-fold svg {
+.trouble-tags-fold svg,
+.trouble-tags-refresh svg {
 	width: 14px;
 	height: 14px;
 }
@@ -326,4 +342,9 @@
 .trouble-tags-icon-preview svg {
 	width: var(--icon-l);
 	height: var(--icon-l);
+}
+
+.trouble-tags-refresh:disabled {
+	opacity: 0.5;
+	cursor: default;
 }

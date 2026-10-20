@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, normalizePath, setIcon } from "obsidian";
 import type TroubleTagsPlugin from "./main";
 import type { KeywordMode, MatchSettings } from "./scanner";
 import { parseCalloutChars, parseKeywords } from "./parse";
@@ -177,7 +177,10 @@ export class TroubleTagsSettingTab extends PluginSettingTab {
 						this.excludeApply = () => {
 							plugin.settings.excludedFolders = value
 								.split("\n")
-								.map((l) => l.trim().replace(/\/+$/, ""))
+								.map((l) => l.trim())
+								.filter((l) => l.length > 0)
+								// normalizePath strips leading and trailing slashes; the replace is a fallback.
+								.map((l) => normalizePath(l).replace(/^\/+|\/+$/g, ""))
 								.filter((l) => l.length > 0);
 							void plugin.saveSettings();
 							plugin.onMatchSettingsChanged();

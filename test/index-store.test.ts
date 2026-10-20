@@ -280,3 +280,70 @@ test("no-change refresh does not write", async () => {
   await s.refresh();
   assert.equal(st.writes, 1);
 });
+
+test("build stopped after the first batch keeps files null and does not write", async () => {
+  const many: Record<string, { mtime: number; text: string }> = {};
+  for (let i = 0; i < 120; i++) many[`n${i}.md`] = { mtime: i, text: "TODO: x" };
+  const { st, io } = fake(many);
+  const s = mk(io);
+  let batches = 0;
+  await s.build(() => { batches++; }, () => batches >= 1);
+  assert.equal(batches, 1);
+  assert.equal(s.files, null);
+  assert.equal(st.writes, 0);
+});
+
+test("refresh stopped after the first batch leaves entries unchanged and does not write", async () => {
+  const many: Record<string, { mtime: number; text: string }> = {};
+  for (let i = 0; i < 120; i++) many[`n${i}.md`] = { mtime: i, text: "TODO: x" };
+  const { st, io } = fake(many);
+  const s = mk(io);
+  await s.build();
+  const before = JSON.stringify(s.files);
+  const rev = s.revision;
+  for (let i = 0; i < 120; i++) st.fs.set(`n${i}.md`, { mtime: 1000 + i, text: "nothing" });
+  st.fs.delete("n0.md");
+  st.reads.length = 0;
+  await s.refresh(() => st.reads.length >= 50);
+  assert.equal(st.reads.length, 50);
+  assert.equal(JSON.stringify(s.files), before);
+  assert.equal(s.revision, rev);
+  assert.equal(st.writes, 1);
+});
+
+test("load drops malformed entries and keeps the rest", async () => {
+  const { st, io } = fake(three);
+  const good = { mtime: 1, hits: [{ line: 0, kind: "keyword", label: "TODO", text: "a", done: false, from: 0, to: 4 }] };
+  st.indexJson = JSON.stringify({
+    version: 1,
+    config: hash,
+    files: {
+      "a.md": good,
+      "b.md": { mtime: 2, hits: "nope" },
+      "c.md": { mtime: "3", hits: [] },
+      "d.md": { mtime: 4, hits: [{ line: "0", kind: "keyword", label: "TODO", from: 0, to: 4 }] },
+    },
+  });
+  const s = mk(io);
+  await s.load();
+  assert.deepEqual(Object.keys(s.files!), ["a.md"]);
+  assert.deepEqual(s.files!["a.md"], good);
+  assert.equal(st.deletes, 0);
+});
+
+test("revision increases on every mutation", async () => {
+  const { io } = fake(three);
+  const s = mk(io);
+  const revs = [s.revision];
+  await s.build();
+  revs.push(s.revision);
+  await s.updateFile("a.md", 9, "TODO: z");
+  revs.push(s.revision);
+  s.renameFile("a.md", "z.md");
+  revs.push(s.revision);
+  s.removeFile("z.md");
+  revs.push(s.revision);
+  await s.invalidate();
+  revs.push(s.revision);
+  for (let i = 1; i < revs.length; i++) assert.ok(revs[i] > revs[i - 1]);
+});

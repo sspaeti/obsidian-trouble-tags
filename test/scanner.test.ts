@@ -148,3 +148,13 @@ test("empty calloutChars", () => {
   assert.equal(c.calloutRe, null);
   assert.deepEqual(rows("- ? x", c), []);
 });
+
+test("emoji callout char matches", () => {
+  const c = buildScanConfig({ keywords: [], keywordMode: "both", calloutChars: ["🔥"] });
+  const hits = scanText("- 🔥 hot", c);
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].kind, "callout");
+  assert.equal(hits[0].label, "🔥");
+  assert.equal(hits[0].text, "hot");
+  assert.equal("- 🔥 hot".slice(hits[0].from, hits[0].to), "🔥");
+});

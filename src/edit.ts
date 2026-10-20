@@ -45,3 +45,21 @@ export function undoneReplacement(
   }
   return null;
 }
+
+/**
+ * Applies `fn` to line `hit.line` of a whole note. Splits on "\n" only, so a CRLF
+ * line keeps its "\r". Out-of-range line or a refused replacement: text unchanged.
+ */
+export function applyToText(
+  data: string,
+  hit: Hit,
+  fn: (hit: Hit, line: string) => Replacement | null,
+): { text: string; changed: boolean } {
+  const lines = data.split("\n");
+  if (hit.line < 0 || hit.line >= lines.length) return { text: data, changed: false };
+  const l = lines[hit.line];
+  const r = fn(hit, l);
+  if (!r) return { text: data, changed: false };
+  lines[hit.line] = l.slice(0, r.from) + r.insert + l.slice(r.to);
+  return { text: lines.join("\n"), changed: true };
+}

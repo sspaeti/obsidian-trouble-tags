@@ -40,7 +40,7 @@ export function buildScanConfig(s: MatchSettings): ScanConfig {
   const calloutRe =
     chars.length > 0
       ? new RegExp(
-          "^(\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\[.\\]\\s+)?)([" + chars.join("") + "])\\s",
+          "^(\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\[.\\]\\s+)?)((?:" + chars.join("|") + "))\\s",
         )
       : null;
   const taskRe = /^\s*(?:[-*+]|\d+[.)])\s+\[(.)\]\s*(.*)$/;
@@ -99,7 +99,7 @@ export function scanText(text: string, cfg: ScanConfig): Hit[] {
         kind: "task",
         label: "task",
         secondary: co ? co[2] : undefined,
-        text: cleanText(co ? line.slice(co[1].length + 1) : tk[2]),
+        text: cleanText(co ? line.slice(co[1].length + co[2].length) : tk[2]),
         done: tk[1] !== " ",
         from,
         to: from + 3,
@@ -110,10 +110,11 @@ export function scanText(text: string, cfg: ScanConfig): Hit[] {
         line: n,
         kind: "callout",
         label: co[2],
-        text: cleanText(line.slice(from + 1)),
+        text: cleanText(line.slice(from + co[2].length)),
         done: false,
         from,
-        to: from + 1,
+        // A callout char may be an emoji (two UTF-16 units).
+        to: from + co[2].length,
       });
     }
     if (kwRe) {
