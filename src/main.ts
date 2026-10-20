@@ -1,120 +1,8 @@
-import { Plugin, ItemView, WorkspaceLeaf } from "obsidian";
+import { Plugin, TFile } from "obsidian";
 import { buildScanConfig, ScanConfig } from "./scanner";
 import { DEFAULT_SETTINGS, TroubleTagsSettings, TroubleTagsSettingTab } from "./settings";
-
-const VIEW_TYPE = "trouble-tags-view";
-const TAG_REGEX = /#(TODO|FIXME|BUG|NOTE|WARN)\b/g;
-
-interface Hit {
-	tag: string;
-	line: number;
-	context: string;
-}
-
-class TroubleView extends ItemView {
-	plugin: TroubleTagsPlugin;
-	results: Hit[] = [];
-	currentPath: string | null = null;
-	debounceTimer: number | null = null;
-	rootEl: HTMLElement | null = null;
-
-	constructor(leaf: WorkspaceLeaf, plugin: TroubleTagsPlugin) {
-		super(leaf);
-		this.plugin = plugin;
-	}
-
-	getViewType() { return VIEW_TYPE; }
-	getDisplayText() { return "Trouble Tags"; }
-	getIcon() { return "alert-triangle"; }
-
-	async onOpen() {
-		this.contentEl.empty();
-		this.rootEl = this.contentEl.createDiv({ cls: "trouble-tags-container" });
-		await this.scanActiveFile();
-	}
-
-	onClose() {
-		if (this.debounceTimer) window.clearTimeout(this.debounceTimer);
-		return Promise.resolve();
-	}
-
-	requestRefresh() {
-		if (this.debounceTimer) window.clearTimeout(this.debounceTimer);
-		this.debounceTimer = window.setTimeout(() => {
-			this.debounceTimer = null;
-			void this.scanActiveFile();
-		}, 300);
-	}
-
-	async scanActiveFile() {
-		const file = this.app.workspace.getActiveFile();
-		if (!file || file.extension !== "md") {
-			this.currentPath = null;
-			this.results = [];
-			this.renderResults();
-			return;
-		}
-
-		this.currentPath = file.path;
-		const content = await this.app.vault.cachedRead(file);
-		const lines = content.split("\n");
-		const hits: Hit[] = [];
-
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-			TAG_REGEX.lastIndex = 0;
-			let m: RegExpExecArray | null;
-			while ((m = TAG_REGEX.exec(line)) !== null) {
-				const tag = m[1];
-				const context = line
-					.substring(m.index + m[0].length)
-					.replace(/^[\s:—–-]+/, "")
-					.trim();
-				hits.push({ tag, line: i, context: context || line.trim() });
-			}
-		}
-
-		this.results = hits;
-		this.renderResults();
-	}
-
-	renderResults() {
-		if (!this.rootEl) return;
-		this.rootEl.empty();
-
-		if (this.currentPath) {
-			const name = this.currentPath.split("/").pop();
-			this.rootEl.createDiv({ cls: "trouble-tags-filename", text: name });
-		}
-
-		if (this.results.length === 0) {
-			this.rootEl.createDiv({ cls: "trouble-tags-empty", text: "No tags found" });
-			return;
-		}
-
-		for (const hit of this.results) {
-			const row = this.rootEl.createDiv({ cls: "trouble-tags-row" });
-
-			row.createSpan({ cls: `trouble-tags-label trouble-tags-label-${hit.tag.toLowerCase()}`, text: hit.tag });
-
-			row.createSpan({ cls: "trouble-tags-line", text: ":" + (hit.line + 1) });
-			row.createSpan({ cls: "trouble-tags-context", text: hit.context });
-
-			row.addEventListener("click", () => this.jumpToLine(hit.line));
-		}
-	}
-
-	jumpToLine(line: number) {
-		const leaf = this.app.workspace.getMostRecentLeaf();
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const view = leaf?.view as any;
-		if (!leaf || !view || !view.editor) return;
-		const editor = view.editor;
-		editor.setCursor({ line, ch: 0 });
-		editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
-		editor.focus();
-	}
-}
+import { TroubleView, VIEW_TYPE } from "./view";
+import { findMarkdownView } from "./workspace";
 
 export default class TroubleTagsPlugin extends Plugin {
 	settings!: TroubleTagsSettings;
@@ -134,7 +22,7 @@ export default class TroubleTagsPlugin extends Plugin {
 
 	onMatchSettingsChanged() {
 		this.scanConfig = buildScanConfig(this.settings);
-		void this.getView()?.scanActiveFile();
+		this.getView()?.onConfigChanged();
 	}
 
 	async onload() {
@@ -151,17 +39,29 @@ export default class TroubleTagsPlugin extends Plugin {
 		});
 
 		this.registerEvent(
-			this.app.workspace.on("active-leaf-change", () => {
-				void this.getView()?.scanActiveFile();
+			this.app.workspace.on("file-open", (file) => {
+				const view = this.getView();
+				if (!view) return;
+				if (file?.path !== view.currentPath) void view.scanNote(file);
+			})
+		);
+
+		this.registerEvent(
+			this.app.workspace.on("editor-change", (editor, info) => {
+				const view = this.getView();
+				if (!view) return;
+				if (info.file?.path === view.currentPath) view.scheduleNoteScan(editor);
 			})
 		);
 
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
 				const view = this.getView();
-				if (view && view.currentPath === file.path) {
-					view.requestRefresh();
-				}
+				if (!view) return;
+				if (!(file instanceof TFile) || file.path !== view.currentPath) return;
+				// An open editor already drives rescans through editor-change.
+				if (findMarkdownView(this.app, file.path)) return;
+				void view.scanNote(file);
 			})
 		);
 	}

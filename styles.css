@@ -79,3 +79,115 @@
 	background-color: rgba(234, 179, 8, 0.15);
 	color: rgb(234, 179, 8);
 }
+
+.trouble-tags-label-idea {
+	background-color: rgba(168, 85, 247, 0.15);
+	color: rgb(168, 85, 247);
+}
+
+.trouble-tags-label-tk {
+	background-color: rgba(156, 163, 175, 0.15);
+	color: rgb(156, 163, 175);
+}
+
+/* Custom keywords cycle through this palette (index in settings mod 6). */
+.trouble-tags-label-custom-0 {
+	background-color: rgba(236, 72, 153, 0.15);
+	color: rgb(236, 72, 153);
+}
+
+.trouble-tags-label-custom-1 {
+	background-color: rgba(20, 184, 166, 0.15);
+	color: rgb(20, 184, 166);
+}
+
+.trouble-tags-label-custom-2 {
+	background-color: rgba(99, 102, 241, 0.15);
+	color: rgb(99, 102, 241);
+}
+
+.trouble-tags-label-custom-3 {
+	background-color: rgba(132, 204, 22, 0.15);
+	color: rgb(132, 204, 22);
+}
+
+.trouble-tags-label-custom-4 {
+	background-color: rgba(6, 182, 212, 0.15);
+	color: rgb(6, 182, 212);
+}
+
+.trouble-tags-label-custom-5 {
+	background-color: rgba(244, 63, 94, 0.15);
+	color: rgb(244, 63, 94);
+}
+
+.trouble-tags-label-callout {
+	background-color: var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.trouble-tags-label-task {
+	background-color: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+	color: var(--interactive-accent);
+}
+
+.trouble-tags-header {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding-bottom: 8px;
+}
+
+.trouble-tags-chip {
+	font-size: var(--font-ui-smaller);
+	padding: 2px 8px;
+	height: auto;
+	border-radius: var(--radius-l);
+	background-color: transparent;
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: none;
+	cursor: pointer;
+}
+
+.trouble-tags-chip.is-active {
+	background-color: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+.trouble-tags-row.is-done .trouble-tags-context {
+	text-decoration: line-through;
+	color: var(--text-faint);
+}
+
+.trouble-tags-row .trouble-tags-context {
+	flex: 1 1 auto;
+}
+
+.trouble-tags-done {
+	flex-shrink: 0;
+	margin-left: auto;
+	padding: 0 4px;
+	height: auto;
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+	opacity: 0;
+	cursor: pointer;
+	align-self: center;
+}
+
+.trouble-tags-done:hover {
+	color: var(--interactive-accent);
+}
+
+.trouble-tags-done svg {
+	width: 14px;
+	height: 14px;
+}
+
+.trouble-tags-row:hover .trouble-tags-done,
+.trouble-tags-row:focus-within .trouble-tags-done {
+	opacity: 1;
+}
