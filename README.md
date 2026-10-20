@@ -1,6 +1,6 @@
 # Trouble Tags in Obsidian
 
-A sidebar panel, inspired by [trouble.nvim](https://github.com/folke/trouble.nvim), that lists the things you want to come back to: `TODO`-style keywords, list callouts and open checkbox tasks. It shows the current note by default, or the whole vault, and jumps to the line when you click an entry. It does nothing while the panel is closed and never changes a note unless you press a check button.
+A sidebar panel, inspired by [todo-comments.nvim](https://github.com/folke/todo-comments.nvim), that lists the things you want to come back to: `TODO`-style keywords, list callouts and open checkbox tasks. It shows the current note by default, or the whole vault, and jumps to the line when you click an entry. It does nothing while the panel is closed and never changes a note unless you press a check button.
 
 ![plugin preview](images/trouble-plugin.png)
 
@@ -73,7 +73,7 @@ For manual testing, `node scripts/make-test-notes.mjs` writes fixture notes (all
 
 ## Credits
 
-- Inspired by [trouble.nvim](https://github.com/folke/trouble.nvim).
+- Inspired by [todo-comments.nvim](https://github.com/folke/todo-comments.nvim).
 - List callout characters follow the [List Callouts](https://github.com/mgmeyers/obsidian-list-callouts) plugin.
 
 *Also check out my other plugin: [Obsidian Open Specific File](https://github.com/sspaeti/obsidian-open-specific-notes)*

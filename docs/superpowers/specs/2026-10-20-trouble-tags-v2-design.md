@@ -5,7 +5,7 @@ Status: approved 2026-10-20
 
 ## Intent
 
-Trouble Tags is a sidebar panel (inspired by trouble.nvim) that lists "things to come back to" in a note and jumps to them on click. v1 only finds `#TODO`-style hashtags in the active note. In practice the author writes bare `TODO:` far more often than `#TODO`, also uses List Callouts (`- ? question`, `- ! important`, `- = idea`) and plain checkboxes (`- [ ] task`), and wants one place to see all of them, for the current note by default and optionally for the whole vault, so the panel can double as a lightweight TODO app. It must stay lightning fast and do nothing when the panel is closed.
+Trouble Tags is a sidebar panel (inspired by todo-comments.nvim) that lists "things to come back to" in a note and jumps to them on click. v1 only finds `#TODO`-style hashtags in the active note. In practice the author writes bare `TODO:` far more often than `#TODO`, also uses List Callouts (`- ? question`, `- ! important`, `- = idea`) and plain checkboxes (`- [ ] task`), and wants one place to see all of them, for the current note by default and optionally for the whole vault, so the panel can double as a lightweight TODO app. It must stay lightning fast and do nothing when the panel is closed.
 
 ## Goals
 
