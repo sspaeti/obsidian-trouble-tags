@@ -17,11 +17,15 @@ function fake(initial: Record<string, { mtime: number; text: string }>) {
     writes: 0,
     deletes: 0,
     yields: 0,
+    failing: new Set<string>(),
+    onRead: undefined as ((p: string) => void) | undefined,
   };
   const io: IndexIO = {
     listMarkdown: () => [...fs.entries()].map(([path, v]) => ({ path, mtime: v.mtime })),
     readFile: async (p) => {
       st.reads.push(p);
+      st.onRead?.(p);
+      if (st.failing.has(p)) throw new Error("gone");
       return fs.get(p)!.text;
     },
     readIndex: async () => st.indexJson,
@@ -102,6 +106,7 @@ test("load with matching config restores entries without scanning", async () => 
   await s2.load();
   assert.deepEqual(s2.files, s1.files);
   assert.equal(b.st.reads.length, 0);
+  assert.equal(b.st.deletes, 0);
 });
 
 test("refresh rescans only changed, new and removed", async () => {
@@ -161,17 +166,21 @@ test("excluded files absent after build and removed on refresh", async () => {
   excluded = ["templates"];
   await s.refresh();
   assert.deepEqual(Object.keys(s.files!).sort(), ["templates-old/y.md", "z.md"]);
+  const mark = st.reads.length;
   const t = mk(io, ["templates"]);
   await t.build();
   assert.equal(t.files!["templates/x.md"], undefined);
-  assert.equal(st.reads.includes("templates/x.md"), true); // from first build only
+  assert.equal(st.reads.slice(mark).includes("templates/x.md"), false);
 });
 
 test("renameFile moves entry; excluded target drops it", async () => {
   const { io } = fake(three);
   const s = mk(io, ["tpl"]);
   await s.build();
+  s.markDirty("a.md");
   s.renameFile("a.md", "n.md");
+  assert.equal(s.dirty.has("a.md"), false);
+  assert.equal(s.dirty.has("n.md"), true);
   assert.equal(s.files!["a.md"], undefined);
   assert.equal(s.files!["n.md"].hits.length, 1);
   s.renameFile("n.md", "tpl/n.md");
@@ -228,6 +237,46 @@ test("build with 250 files yields to UI and ends (250,250)", async () => {
   const s = mk(io);
   let last: [number, number] = [0, 0];
   await s.build((d, t) => (last = [d, t]));
-  assert.ok(st.yields >= 1);
+  assert.equal(st.yields, 1);
   assert.deepEqual(last, [250, 250]);
+});
+
+test("build skips a file whose read fails and still saves once", async () => {
+  const { st, io } = fake(three);
+  st.failing.add("b.md");
+  const s = mk(io);
+  await s.build();
+  assert.deepEqual(Object.keys(s.files!).sort(), ["a.md", "c.md"]);
+  assert.equal(st.writes, 1);
+});
+
+test("refresh survives a failing read", async () => {
+  const { st, io } = fake(three);
+  const s = mk(io);
+  await s.build();
+  st.fs.set("a.md", { mtime: 50, text: "TODO: new" });
+  st.fs.set("d.md", { mtime: 4, text: "TODO: d" });
+  st.failing.add("a.md");
+  await s.refresh();
+  assert.equal(s.files!["d.md"].hits.length, 1);
+  assert.equal(s.files!["a.md"].mtime, 1);
+});
+
+test("markDirty during refresh reads is preserved", async () => {
+  const { st, io } = fake({ ...three, "z.md": { mtime: 1, text: "x" } });
+  const s = mk(io);
+  await s.build();
+  s.markDirty("a.md");
+  st.onRead = () => s.markDirty("z.md");
+  await s.refresh();
+  assert.equal(s.dirty.has("z.md"), true);
+  assert.equal(s.dirty.has("a.md"), false);
+});
+
+test("no-change refresh does not write", async () => {
+  const { st, io } = fake(three);
+  const s = mk(io);
+  await s.build();
+  await s.refresh();
+  assert.equal(st.writes, 1);
 });

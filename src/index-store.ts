@@ -80,25 +80,34 @@ export class IndexStore {
     }
   }
 
+  // Reads and scans a batch; files whose read fails are skipped. Returns processed paths.
   private async scanBatch(
     batch: Array<{ path: string; mtime: number }>,
     scan: ScanConfig,
     out: Record<string, IndexEntry>,
-  ): Promise<void> {
+  ): Promise<string[]> {
     const results = await Promise.all(
-      batch.map(async (f) => ({
-        f,
-        hits: scanText(await this.io.readFile(f.path), scan),
-      })),
+      batch.map(async (f) => {
+        try {
+          return { f, hits: scanText(await this.io.readFile(f.path), scan) };
+        } catch {
+          return null;
+        }
+      }),
     );
-    for (const r of results) out[r.f.path] = { mtime: r.f.mtime, hits: r.hits };
+    const processed: string[] = [];
+    for (const r of results) {
+      if (r === null) continue;
+      out[r.f.path] = { mtime: r.f.mtime, hits: r.hits };
+      processed.push(r.f.path);
+    }
+    return processed;
   }
 
   async build(onProgress?: (done: number, total: number) => void): Promise<void> {
     const cfg = this.getConfig();
     const list = this.io.listMarkdown().filter((f) => !this.isExcluded(f.path));
     const files: Record<string, IndexEntry> = {};
-    this.files = files;
     this.dirty.clear();
     const total = list.length;
     let done = 0;
@@ -112,6 +121,7 @@ export class IndexStore {
         await this.io.yieldToUi();
       }
     }
+    this.files = files;
     await this.save();
   }
 
@@ -121,13 +131,16 @@ export class IndexStore {
     const cfg = this.getConfig();
     const current = this.io.listMarkdown().filter((f) => !this.isExcluded(f.path));
     const present = new Set(current.map((f) => f.path));
+    const dirtySnapshot = new Set(this.dirty);
     const stale = current.filter((f) => {
       const e = files[f.path];
-      return !e || e.mtime !== f.mtime || this.dirty.has(f.path);
+      return !e || e.mtime !== f.mtime || dirtySnapshot.has(f.path);
     });
-    let changed = stale.length > 0;
+    let changed = false;
     for (let i = 0; i < stale.length; i += BATCH) {
-      await this.scanBatch(stale.slice(i, i + BATCH), cfg.scan, files);
+      const processed = await this.scanBatch(stale.slice(i, i + BATCH), cfg.scan, files);
+      if (processed.length > 0) changed = true;
+      for (const p of processed) this.dirty.delete(p);
     }
     for (const p of Object.keys(files)) {
       if (!present.has(p)) {
@@ -135,7 +148,7 @@ export class IndexStore {
         changed = true;
       }
     }
-    this.dirty.clear();
+    for (const p of dirtySnapshot) if (!present.has(p)) this.dirty.delete(p);
     if (changed) await this.save();
   }
 
@@ -159,6 +172,7 @@ export class IndexStore {
     const entry = this.files[oldPath];
     delete this.files[oldPath];
     if (!this.isExcluded(newPath)) this.files[newPath] = entry;
+    if (this.dirty.delete(oldPath) && !this.isExcluded(newPath)) this.dirty.add(newPath);
   }
 
   markDirty(path: string): void {
