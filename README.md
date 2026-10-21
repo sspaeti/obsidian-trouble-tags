@@ -69,9 +69,11 @@ Changing keywords, match mode, callout characters or excluded folders discards t
 - With an index present, switching to the vault scope compares modification times and rescans only new or changed notes.
 - Notes in excluded folders are left out.
 
+The plugin lists the vault's markdown files only when you build or refresh the index, and reads them through Obsidian's own Vault API. Nothing leaves the vault and no note is written to by scanning.
+
 ## Install
 
-Once the plugin is published: Settings, Community plugins, Browse, search for "Trouble Tags", install and enable.
+Settings, Community plugins, Browse, search for "Trouble Tags", install and enable.
 
 Manually: build or download `main.js`, `manifest.json` and `styles.css`, put them in `<vault>/.obsidian/plugins/trouble-tags/` (copy or symlink this folder), then enable the plugin in Settings, Community plugins.
 
@@ -84,7 +86,9 @@ npm run build   # type-check and bundle
 npm test        # unit tests (node --test)
 ```
 
-Releasing: `make bump VERSION=x.y.z` updates `package.json`, `manifest.json` and `versions.json`, rebuilds and commits. `make release` runs the tests, tags the version from `manifest.json`, pushes and creates the GitHub release with `main.js`, `manifest.json` and `styles.css` (needs the `gh` CLI). `make release VERSION=x.y.z` does both.
+`npm run lint` (or `make lint`) runs ESLint with the official Obsidian rules.
+
+Releasing: `make bump VERSION=x.y.z` updates `package.json`, `manifest.json` and `versions.json`, rebuilds and commits. `make release` runs the tests and lint, tags the version from `manifest.json` and pushes. The Release workflow in `.github/workflows/release.yml` then builds `main.js` from source, attaches GitHub artifact attestations to `main.js`, `manifest.json` and `styles.css`, and publishes the release. `make release VERSION=x.y.z` does both.
 
 For manual testing, `node scripts/make-test-notes.mjs` writes fixture notes (all matching forms plus 300 generated notes) into a throwaway vault at `~/git/obsidian/trouble-tags-testvault`. It only creates or overwrites its own files.
 

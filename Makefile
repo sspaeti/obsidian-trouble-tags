@@ -5,13 +5,14 @@
 #   make dev                   rebuild on change
 #   make bump VERSION=2.0.2    set the version in package.json, manifest.json,
 #                              versions.json, rebuild and commit
-#   make release               tag the version in manifest.json, push main and
-#                              the tag, create the GitHub release with assets
+#   make release               tag the version in manifest.json and push main
+#                              and the tag; the Release workflow then builds,
+#                              attests and publishes the GitHub release
 #   make release VERSION=2.0.2 bump, then release
+#   make lint                  eslint with the Obsidian rules
 
-.PHONY: build test dev bump release check-clean
+.PHONY: build test dev lint bump release check-clean
 
-ASSETS  := main.js manifest.json styles.css
 CURRENT := $(shell node -p "require('./manifest.json').version")
 
 build:
@@ -19,6 +20,9 @@ build:
 
 test:
 	npm test
+
+lint:
+	npm run lint
 
 dev:
 	npm run dev
@@ -33,7 +37,7 @@ bump: check-clean
 	git add package.json package-lock.json manifest.json versions.json main.js
 	git commit -m "build: release version $(VERSION)"
 
-release: test
+release: test lint
 ifneq ($(strip $(VERSION)),)
 ifneq ($(VERSION),$(CURRENT))
 	$(MAKE) bump VERSION=$(VERSION)
@@ -46,4 +50,5 @@ do-release: check-clean
 	@git rev-parse -q --verify "refs/tags/$(VERSION)" >/dev/null && { echo "tag $(VERSION) already exists"; exit 1; } || true
 	git tag -a $(VERSION) -m "$(VERSION)"
 	git push origin main $(VERSION)
-	gh release create $(VERSION) $(ASSETS) --title "$(VERSION)" --generate-notes
+	@echo "Tag $(VERSION) pushed. The Release workflow builds, attests and publishes it:"
+	@echo "  gh run watch"
