@@ -27,7 +27,7 @@ export interface ScanConfig {
 }
 
 function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\\/-]/g, "\\$&");
+  return s.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
 }
 
 export function buildScanConfig(s: MatchSettings): ScanConfig {

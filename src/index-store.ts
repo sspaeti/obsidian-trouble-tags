@@ -86,28 +86,22 @@ export class IndexStore {
       this.revision++;
       return;
     }
-    let ok = false;
-    let parsed: IndexFile | null = null;
+    let files: Record<string, unknown> | null = null;
     try {
-      const p = JSON.parse(raw);
-      if (
-        p !== null &&
-        typeof p === "object" &&
-        p.version === 1 &&
-        p.config === this.getConfig().hash &&
-        p.files !== null &&
-        typeof p.files === "object" &&
-        !Array.isArray(p.files)
-      ) {
-        parsed = p as IndexFile;
-        ok = true;
+      const p: unknown = JSON.parse(raw);
+      if (p !== null && typeof p === "object") {
+        const o = p as Record<string, unknown>;
+        const f = o.files;
+        if (o.version === 1 && o.config === this.getConfig().hash && f !== null && typeof f === "object" && !Array.isArray(f)) {
+          files = f as Record<string, unknown>;
+        }
       }
     } catch {
-      ok = false;
+      files = null;
     }
     this.revision++;
-    if (ok && parsed) {
-      this.files = validEntries(parsed.files as unknown as Record<string, unknown>);
+    if (files) {
+      this.files = validEntries(files);
       this.lastWritten = raw;
     } else {
       this.files = null;

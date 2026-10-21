@@ -127,7 +127,7 @@ export default class TroubleTagsPlugin extends Plugin {
 		this.ribbonEl = this.addRibbonIcon(this.settings.icon, "Trouble Tags", () => { void this.toggleView(); });
 
 		this.addCommand({
-			id: "toggle-trouble-tags",
+			id: "toggle-panel",
 			name: "Toggle panel",
 			callback: () => { void this.toggleView(); },
 		});
