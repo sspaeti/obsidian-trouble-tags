@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-trouble-tags",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"description": "Lists TODO/FIXME/NOTE keywords, list callouts and open tasks of the current note or the whole vault in a sidebar.",
 	"main": "main.js",
 	"type": "module",
